@@ -1,13 +1,13 @@
-# SahakarSetu (सहकार सेतु) 🤝
+# SahakarSetu (सहकार सेतु) 
 ### Cooperative-Owned Digital Service Marketplace Platform
 **Smart India Hackathon (SIH) Solution** | *Ministry of Cooperation & National Labour Cooperative Federations*
 
 ---
 
-## 🌟 Overview
+##  Overview
 **SahakarSetu** connects verified skilled trade workers (electricians, plumbers, carpenters, caregivers, painters, appliance repairers, gardeners, etc.) belonging to Labour Cooperative Federations with households and institutions.
 
-### ✨ Key Features Implemented:
+###  Key Features Implemented:
 1. **Consumer / Citizen Portal:**
    - Browse standardized cooperative rate cards with zero surge pricing.
    - **Cooperative Fair Wage Breakdown:** Live visualization (88% directly to worker, 6% welfare & PMSBY insurance, 3% society fund, 3% platform tech).
@@ -34,7 +34,7 @@
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### 1. Run Development Server
 ```bash
@@ -49,7 +49,7 @@ npm run build
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 ```
 coop-service-marketplace/
 ├── prd.md                    # Comprehensive Product Requirements Document (PRD)
