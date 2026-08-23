@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Role, Language, ServiceCategory, WorkerProfile, Booking, Dispute, DemandForecast, WelfareLedgerEntry } from '../types';
 import { serviceCategories, initialWorkers, initialBookings, mockDemandForecasts, mockDisputes, mockWelfareLedger, translations } from '../data/mockData';
+import { api } from '../services/api';
 import confetti from 'canvas-confetti';
 
 interface AppContextType {
@@ -20,18 +21,20 @@ interface AppContextType {
   setEmergencyMode: (enabled: boolean) => void;
   voiceModalOpen: boolean;
   setVoiceModalOpen: (open: boolean) => void;
+  isBackendConnected: boolean;
   
   // Actions
-  createNewBooking: (categoryId: string, items: { itemId: string; qty: number }[], bookingType: 'INSTANT_SOS' | 'SCHEDULED', address: string, description?: string) => Booking;
-  acceptBooking: (bookingId: string) => void;
-  startJobWithOtp: (bookingId: string, otp: string) => boolean;
-  completeJob: (bookingId: string, proofPhotoUrl?: string) => void;
-  settlePayment: (bookingId: string, method: 'UPI' | 'CARD' | 'CASH') => void;
-  submitRating: (bookingId: string, rating: number, comment: string) => void;
-  toggleWorkerAvailability: (workerId: string) => void;
-  approveWorkerKYC: (workerId: string) => void;
-  resolveDispute: (disputeId: string, note: string) => void;
+  createNewBooking: (categoryId: string, items: { itemId: string; qty: number }[], bookingType: 'INSTANT_SOS' | 'SCHEDULED', address: string, description?: string) => Promise<Booking>;
+  acceptBooking: (bookingId: string) => Promise<void>;
+  startJobWithOtp: (bookingId: string, otp: string) => Promise<boolean>;
+  completeJob: (bookingId: string, proofPhotoUrl?: string) => Promise<void>;
+  settlePayment: (bookingId: string, method: 'UPI' | 'CARD' | 'CASH') => Promise<void>;
+  submitRating: (bookingId: string, rating: number, comment: string) => Promise<void>;
+  toggleWorkerAvailability: (workerId: string) => Promise<void>;
+  approveWorkerKYC: (workerId: string) => Promise<void>;
+  resolveDispute: (disputeId: string, note: string) => Promise<void>;
   speakText: (text: string) => void;
+  refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -39,14 +42,16 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [role, setRole] = useState<Role>('customer');
   const [language, setLanguage] = useState<Language>('en');
+  const [categories, setCategories] = useState<ServiceCategory[]>(serviceCategories);
   const [workers, setWorkers] = useState<WorkerProfile[]>(initialWorkers);
   const [bookings, setBookings] = useState<Booking[]>(initialBookings);
   const [disputes, setDisputes] = useState<Dispute[]>(mockDisputes);
-  const [forecasts] = useState<DemandForecast[]>(mockDemandForecasts);
+  const [forecasts, setForecasts] = useState<DemandForecast[]>(mockDemandForecasts);
   const [welfareLedger, setWelfareLedger] = useState<WelfareLedgerEntry[]>(mockWelfareLedger);
   const [emergencyMode, setEmergencyMode] = useState<boolean>(false);
   const [voiceModalOpen, setVoiceModalOpen] = useState<boolean>(false);
   const [activeWorkerId] = useState<string>('w-101');
+  const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
 
   const activeWorker = workers.find(w => w.id === activeWorkerId) || workers[0];
 
@@ -69,195 +74,286 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const createNewBooking = (
+  // Sync state from live backend database
+  const refreshData = async () => {
+    try {
+      const [svcRes, wrkRes, bkRes, fcRes, dspRes] = await Promise.allSettled([
+        api.services.getAll(),
+        api.workers.getAll(),
+        api.bookings.getAll(),
+        api.admin.getForecasts(),
+        api.admin.getDisputes()
+      ]);
+
+      let backendOk = false;
+
+      if (svcRes.status === 'fulfilled' && svcRes.value?.data?.length > 0) {
+        setCategories(svcRes.value.data);
+        backendOk = true;
+      }
+      if (wrkRes.status === 'fulfilled' && wrkRes.value?.data?.length > 0) {
+        setWorkers(wrkRes.value.data);
+        backendOk = true;
+      }
+      if (bkRes.status === 'fulfilled' && bkRes.value?.data) {
+        setBookings(bkRes.value.data);
+        backendOk = true;
+      }
+      if (fcRes.status === 'fulfilled' && fcRes.value?.data) {
+        setForecasts(fcRes.value.data);
+        backendOk = true;
+      }
+      if (dspRes.status === 'fulfilled' && dspRes.value?.data) {
+        setDisputes(dspRes.value.data);
+        backendOk = true;
+      }
+
+      // Fetch welfare ledger for active worker
+      try {
+        const welfareRes = await api.welfare.get(activeWorkerId);
+        if (welfareRes.data?.ledger) {
+          setWelfareLedger(welfareRes.data.ledger);
+        }
+      } catch (e) {}
+
+      setIsBackendConnected(backendOk);
+    } catch (e) {
+      console.warn('Backend connection offline, running in offline fallback mode:', e);
+      setIsBackendConnected(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshData();
+  }, []);
+
+  const createNewBooking = async (
     categoryId: string,
     items: { itemId: string; qty: number }[],
     bookingType: 'INSTANT_SOS' | 'SCHEDULED',
     address: string,
     description?: string
-  ): Booking => {
-    const category = serviceCategories.find(c => c.id === categoryId) || serviceCategories[0];
-    
-    let calculatedTotal = category.baseInspectionFee;
-    const selectedItemObjs: { item: any; quantity: number }[] = [];
+  ): Promise<Booking> => {
+    try {
+      const res = await api.bookings.create({
+        serviceCategoryId: categoryId,
+        items,
+        bookingType,
+        customerAddress: address,
+        customerName: 'Citizen User',
+        customerPhone: '+91 98711 00223',
+        problemDescription: description
+      });
 
-    items.forEach(({ itemId, qty }) => {
-      const foundItem = category.standardItems.find(si => si.id === itemId);
-      if (foundItem) {
-        selectedItemObjs.push({ item: foundItem, quantity: qty });
-        calculatedTotal += foundItem.baseRate * qty;
-      }
-    });
+      const newBooking = res.data;
+      setBookings(prev => [newBooking, ...prev]);
 
-    const workerWage = Number((calculatedTotal * 0.88).toFixed(2));
-    const welfareCut = Number((calculatedTotal * 0.06).toFixed(2));
-    const societyCut = Number((calculatedTotal * 0.03).toFixed(2));
-    const platformCut = Number((calculatedTotal * 0.03).toFixed(2));
-
-    const randomWorker = workers.find(w => w.trade.toLowerCase().includes(category.id) || w.isAvailable) || workers[0];
-    const newId = `BK-${Math.floor(1000 + Math.random() * 9000)}`;
-    const startOtp = `${Math.floor(1000 + Math.random() * 9000)}`;
-    const completionOtp = `${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const newBooking: Booking = {
-      id: newId,
-      customerName: 'Citizen User',
-      customerPhone: '+91 98711 00223',
-      customerAddress: address || 'Sector 22, Rohini, New Delhi - 110085',
-      serviceCategoryId: category.id,
-      serviceTitle: language === 'hi' ? category.titleHi : category.title,
-      selectedItems: selectedItemObjs,
-      bookingType,
-      scheduledTime: bookingType === 'INSTANT_SOS' ? 'Instant SOS (Under 30 Mins)' : 'Tomorrow, 10:00 AM',
-      status: 'SEARCHING',
-      workerId: randomWorker.id,
-      worker: randomWorker,
-      startOtp,
-      completionOtp,
-      totalAmount: calculatedTotal,
-      workerWage,
-      welfareCut,
-      societyCut,
-      platformCut,
-      paymentStatus: 'PENDING',
-      createdAt: 'Just now',
-      problemDescription: description || 'Standard verified cooperative repair service request'
-    };
-
-    setBookings(prev => [newBooking, ...prev]);
-
-    setTimeout(() => {
-      setBookings(currentBookings =>
-        currentBookings.map(b =>
-          b.id === newId ? { ...b, status: 'MATCHED' as const } : b
-        )
-      );
       try {
         confetti({ particleCount: 60, spread: 50, origin: { y: 0.7 } });
       } catch (e) {}
-    }, 1500);
 
-    return newBooking;
+      return newBooking;
+    } catch (err) {
+      console.warn('Fallback to local booking creation:', err);
+      // Fallback local creation
+      const category = categories.find(c => c.id === categoryId) || categories[0];
+      let calculatedTotal = category.baseInspectionFee;
+      const selectedItemObjs: { item: any; quantity: number }[] = [];
+
+      items.forEach(({ itemId, qty }) => {
+        const foundItem = category.standardItems.find(si => si.id === itemId);
+        if (foundItem) {
+          selectedItemObjs.push({ item: foundItem, quantity: qty });
+          calculatedTotal += foundItem.baseRate * qty;
+        }
+      });
+
+      const workerWage = Number((calculatedTotal * 0.88).toFixed(2));
+      const welfareCut = Number((calculatedTotal * 0.06).toFixed(2));
+      const societyCut = Number((calculatedTotal * 0.03).toFixed(2));
+      const platformCut = Number((calculatedTotal * 0.03).toFixed(2));
+
+      const newId = `BK-${Math.floor(1000 + Math.random() * 9000)}`;
+      const newBooking: Booking = {
+        id: newId,
+        customerName: 'Citizen User',
+        customerPhone: '+91 98711 00223',
+        customerAddress: address || 'Sector 22, Rohini, New Delhi - 110085',
+        serviceCategoryId: category.id,
+        serviceTitle: language === 'hi' ? category.titleHi : category.title,
+        selectedItems: selectedItemObjs,
+        bookingType,
+        scheduledTime: bookingType === 'INSTANT_SOS' ? 'Instant SOS (Under 30 Mins)' : 'Tomorrow, 10:00 AM',
+        status: 'SEARCHING',
+        workerId: activeWorker.id,
+        worker: activeWorker,
+        startOtp: `${Math.floor(1000 + Math.random() * 9000)}`,
+        completionOtp: `${Math.floor(1000 + Math.random() * 9000)}`,
+        totalAmount: calculatedTotal,
+        workerWage,
+        welfareCut,
+        societyCut,
+        platformCut,
+        paymentStatus: 'PENDING',
+        createdAt: 'Just now',
+        problemDescription: description || 'Standard verified cooperative repair service request'
+      };
+
+      setBookings(prev => [newBooking, ...prev]);
+      return newBooking;
+    }
   };
 
-  const acceptBooking = (bookingId: string) => {
-    setBookings(prev =>
-      prev.map(b =>
-        b.id === bookingId
-          ? { ...b, status: 'EN_ROUTE' as const, worker: activeWorker, workerId: activeWorker.id }
-          : b
-      )
-    );
+  const acceptBooking = async (bookingId: string) => {
+    try {
+      const res = await api.bookings.accept(bookingId, activeWorker.id);
+      setBookings(prev => prev.map(b => b.id === bookingId ? res.data : b));
+    } catch (e) {
+      setBookings(prev =>
+        prev.map(b =>
+          b.id === bookingId
+            ? { ...b, status: 'EN_ROUTE' as const, worker: activeWorker, workerId: activeWorker.id }
+            : b
+        )
+      );
+    }
     speakText(language === 'hi' ? 'कार्य स्वीकार किया गया। ग्राहक की ओर प्रस्थान करें।' : 'Job Accepted. Proceed towards customer location.');
   };
 
-  const startJobWithOtp = (bookingId: string, otpEntered: string): boolean => {
-    const booking = bookings.find(b => b.id === bookingId);
-    if (!booking) return false;
-
-    if (otpEntered.trim() === booking.startOtp || otpEntered.trim() === '1234') {
-      setBookings(prev =>
-        prev.map(b =>
-          b.id === bookingId ? { ...b, status: 'IN_PROGRESS' as const } : b
-        )
-      );
+  const startJobWithOtp = async (bookingId: string, otpEntered: string): Promise<boolean> => {
+    try {
+      const res = await api.bookings.startWithOtp(bookingId, otpEntered.trim());
+      setBookings(prev => prev.map(b => b.id === bookingId ? res.data : b));
       speakText(language === 'hi' ? 'कार्य शुरू हुआ। सुरक्षा नियमों का पालन करें।' : 'Work Started. Follow safety protocols.');
       return true;
+    } catch (e) {
+      // Offline fallback validation
+      const booking = bookings.find(b => b.id === bookingId);
+      if (booking && (otpEntered.trim() === booking.startOtp || otpEntered.trim() === '1234')) {
+        setBookings(prev =>
+          prev.map(b =>
+            b.id === bookingId ? { ...b, status: 'IN_PROGRESS' as const } : b
+          )
+        );
+        speakText(language === 'hi' ? 'कार्य शुरू हुआ। सुरक्षा नियमों का पालन करें।' : 'Work Started. Follow safety protocols.');
+        return true;
+      }
+      return false;
     }
-    return false;
   };
 
-  const completeJob = (bookingId: string, proofPhotoUrl?: string) => {
-    const booking = bookings.find(b => b.id === bookingId);
-    if (!booking) return;
+  const completeJob = async (bookingId: string, proofPhotoUrl?: string) => {
+    try {
+      const res = await api.bookings.complete(bookingId, proofPhotoUrl);
+      setBookings(prev => prev.map(b => b.id === bookingId ? res.data : b));
+      refreshData();
+    } catch (e) {
+      const booking = bookings.find(b => b.id === bookingId);
+      if (!booking) return;
 
-    setBookings(prev =>
-      prev.map(b =>
-        b.id === bookingId
-          ? {
-              ...b,
-              status: 'COMPLETED' as const,
-              completedAt: 'Just now',
-              workProofPhoto: proofPhotoUrl || 'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=400&auto=format&fit=crop&q=80'
-            }
-          : b
-      )
-    );
+      setBookings(prev =>
+        prev.map(b =>
+          b.id === bookingId
+            ? {
+                ...b,
+                status: 'COMPLETED' as const,
+                completedAt: 'Just now',
+                workProofPhoto: proofPhotoUrl || 'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=400&auto=format&fit=crop&q=80'
+              }
+            : b
+        )
+      );
 
-    setWorkers(prev =>
-      prev.map(w => {
-        if (w.id === (booking.workerId || activeWorker.id)) {
-          return {
-            ...w,
-            completedJobs: w.completedJobs + 1,
-            welfareBalance: w.welfareBalance + booking.welfareCut,
-            pensionSavings: w.pensionSavings + 25
-          };
-        }
-        return w;
-      })
-    );
-
-    const newWelfareEntry: WelfareLedgerEntry = {
-      id: `WL-${Math.floor(100 + Math.random() * 900)}`,
-      date: 'Today',
-      type: 'INSURANCE_PMSBY',
-      amount: booking.welfareCut,
-      description: `6% Welfare contribution from Job #${booking.id}`,
-      status: 'CREDITED'
-    };
-    setWelfareLedger(prev => [newWelfareEntry, ...prev]);
+      setWorkers(prev =>
+        prev.map(w => {
+          if (w.id === (booking.workerId || activeWorker.id)) {
+            return {
+              ...w,
+              completedJobs: w.completedJobs + 1,
+              welfareBalance: w.welfareBalance + booking.welfareCut,
+              pensionSavings: w.pensionSavings + 25
+            };
+          }
+          return w;
+        })
+      );
+    }
 
     try {
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     } catch (e) {}
   };
 
-  const settlePayment = (bookingId: string, method: 'UPI' | 'CARD' | 'CASH') => {
-    setBookings(prev =>
-      prev.map(b =>
-        b.id === bookingId
-          ? { ...b, paymentStatus: 'PAID' as const, paymentMethod: method }
-          : b
-      )
-    );
+  const settlePayment = async (bookingId: string, method: 'UPI' | 'CARD' | 'CASH') => {
+    try {
+      const res = await api.bookings.pay(bookingId, method);
+      setBookings(prev => prev.map(b => b.id === bookingId ? res.data : b));
+    } catch (e) {
+      setBookings(prev =>
+        prev.map(b =>
+          b.id === bookingId
+            ? { ...b, paymentStatus: 'PAID' as const, paymentMethod: method }
+            : b
+        )
+      );
+    }
     try {
       confetti({ particleCount: 80, spread: 60, origin: { y: 0.5 } });
     } catch (e) {}
   };
 
-  const submitRating = (bookingId: string, rating: number, comment: string) => {
-    setBookings(prev =>
-      prev.map(b =>
-        b.id === bookingId
-          ? { ...b, rating, reviewComment: comment }
-          : b
-      )
-    );
+  const submitRating = async (bookingId: string, rating: number, comment: string) => {
+    try {
+      const res = await api.bookings.rate(bookingId, rating, comment);
+      setBookings(prev => prev.map(b => b.id === bookingId ? res.data : b));
+    } catch (e) {
+      setBookings(prev =>
+        prev.map(b =>
+          b.id === bookingId
+            ? { ...b, rating, reviewComment: comment }
+            : b
+        )
+      );
+    }
   };
 
-  const toggleWorkerAvailability = (workerId: string) => {
-    setWorkers(prev =>
-      prev.map(w =>
-        w.id === workerId ? { ...w, isAvailable: !w.isAvailable } : w
-      )
-    );
+  const toggleWorkerAvailability = async (workerId: string) => {
+    try {
+      const res = await api.workers.toggleAvailability(workerId);
+      setWorkers(prev => prev.map(w => w.id === workerId ? res.data : w));
+    } catch (e) {
+      setWorkers(prev =>
+        prev.map(w =>
+          w.id === workerId ? { ...w, isAvailable: !w.isAvailable } : w
+        )
+      );
+    }
   };
 
-  const approveWorkerKYC = (workerId: string) => {
-    setWorkers(prev =>
-      prev.map(w =>
-        w.id === workerId ? { ...w, verificationStatus: 'VERIFIED' as const } : w
-      )
-    );
+  const approveWorkerKYC = async (workerId: string) => {
+    try {
+      const res = await api.admin.verifyWorker(workerId, 'VERIFIED');
+      setWorkers(prev => prev.map(w => w.id === workerId ? res.data : w));
+    } catch (e) {
+      setWorkers(prev =>
+        prev.map(w =>
+          w.id === workerId ? { ...w, verificationStatus: 'VERIFIED' as const } : w
+        )
+      );
+    }
   };
 
-  const resolveDispute = (disputeId: string, note: string) => {
-    setDisputes(prev =>
-      prev.map(d =>
-        d.id === disputeId ? { ...d, status: 'RESOLVED' as const, resolutionNote: note } : d
-      )
-    );
+  const resolveDispute = async (disputeId: string, note: string) => {
+    try {
+      const res = await api.admin.resolveDispute(disputeId, note);
+      setDisputes(prev => prev.map(d => d.id === disputeId ? res.data : d));
+    } catch (e) {
+      setDisputes(prev =>
+        prev.map(d =>
+          d.id === disputeId ? { ...d, status: 'RESOLVED' as const, resolutionNote: note } : d
+        )
+      );
+    }
   };
 
   return (
@@ -268,7 +364,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         language,
         setLanguage,
         t,
-        categories: serviceCategories,
+        categories,
         workers,
         bookings,
         activeWorker,
@@ -279,6 +375,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setEmergencyMode,
         voiceModalOpen,
         setVoiceModalOpen,
+        isBackendConnected,
         createNewBooking,
         acceptBooking,
         startJobWithOtp,
@@ -288,7 +385,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         toggleWorkerAvailability,
         approveWorkerKYC,
         resolveDispute,
-        speakText
+        speakText,
+        refreshData
       }}
     >
       {children}

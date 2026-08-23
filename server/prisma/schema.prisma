@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  name      String
+  email     String?
+  role      String   @default("CUSTOMER")
+  createdAt DateTime @default(now())
+  
+  workerProfile WorkerProfile?
+  bookings      Booking[]
+}
+
+model WorkerProfile {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trade               String
+  tradeHi             String?
+  secondaryTrades     String   @default("[]")
+  experienceYears     Int      @default(5)
+  rating              Float    @default(5.0)
+  reviewCount         Int      @default(0)
+  societyName         String
+  societyId           String
+  district            String
+  verificationStatus  String   @default("VERIFIED")
+  aadharMasked        String
+  skillCertifications String   @default("[]")
+  avatar              String
+  hourlyRate          Float    @default(300)
+  distanceKm          Float    @default(1.5)
+  isAvailable         Boolean  @default(true)
+  completedJobs       Int      @default(0)
+  badges              String   @default("[]")
+  welfareBalance      Float    @default(0)
+  pensionSavings      Float    @default(0)
+  insurancePolicyNo   String
+  lat                 Float    @default(28.6139)
+  lng                 Float    @default(77.2090)
+  createdAt           DateTime @default(now())
+
+  bookings       Booking[]
+  welfareLedger  WelfareTransaction[]
+}
+
+model ServiceCategory {
+  id                  String   @id
+  title               String
+  titleHi             String
+  icon                String
+  color               String
+  badge               String?
+  description         String
+  descriptionHi       String
+  baseInspectionFee   Float
+  emergencyAvailable  Boolean  @default(false)
+  createdAt           DateTime @default(now())
+
+  standardItems ServiceItem[]
+  bookings      Booking[]
+}
+
+model ServiceItem {
+  id              String          @id
+  categoryId      String
+  category        ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name            String
+  nameHi          String
+  baseRate        Float
+  unit            String
+  durationMinutes Int
+}
+
+model Booking {
+  id                 String          @id
+  customerId         String?
+  customer           User?           @relation(fields: [customerId], references: [id])
+  customerName       String
+  customerPhone      String
+  customerAddress    String
+  serviceCategoryId  String
+  serviceCategory    ServiceCategory @relation(fields: [serviceCategoryId], references: [id])
+  serviceTitle       String
+  selectedItemsJson  String          @default("[]")
+  bookingType        String          @default("INSTANT_SOS")
+  scheduledTime      String
+  status             String          @default("SEARCHING")
+  workerId           String?
+  worker             WorkerProfile?  @relation(fields: [workerId], references: [id])
+  startOtp           String
+  completionOtp      String
+  totalAmount        Float
+  workerWage         Float
+  welfareCut         Float
+  societyCut         Float
+  platformCut        Float
+  paymentStatus      String          @default("PENDING")
+  paymentMethod      String?
+  problemDescription String?
+  rating             Int?
+  reviewComment      String?
+  workProofPhoto     String?
+  createdAt          DateTime        @default(now())
+  completedAt        DateTime?
+}
+
+model WelfareTransaction {
+  id          String        @id
+  workerId    String
+  worker      WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date        String
+  type        String
+  amount      Float
+  description String
+  status      String        @default("CREDITED")
+  createdAt   DateTime      @default(now())
+}
+
+model Dispute {
+  id             String   @id
+  bookingId      String
+  customerName   String
+  workerName     String
+  issueCategory  String
+  description    String
+  status         String   @default("UNDER_REVIEW")
+  filedDate      String
+  resolutionNote String?
+  createdAt      DateTime @default(now())
+}
+
+model DemandForecast {
+  id                      String   @id
+  district                String
+  trade                   String
+  currentAvailableWorkers Int
+  predictedDemand         Int
+  surgeLevel              String   @default("NORMAL")
+  weatherTrigger          String?
+  reason                  String
+  recommendation          String
+  recommendedMobilization Int      @default(15)
+  createdAt               DateTime @default(now())
+}
