@@ -2,18 +2,22 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   ShieldCheck, Phone, MapPin, CheckCircle, 
-  Award, Heart, Wallet, Volume2, QrCode, X
+  Award, Heart, Wallet, Volume2, QrCode, X, UserPlus, Users, AlertTriangle
 } from 'lucide-react';
 
 export const WorkerPortal: React.FC = () => {
   const { 
     activeWorker, 
+    activeWorkerId,
+    setActiveWorkerId,
+    workers,
     bookings, 
     acceptBooking, 
     startJobWithOtp, 
     completeJob, 
     toggleWorkerAvailability, 
     welfareLedger,
+    setWorkerRegisterModalOpen,
     language,
     speakText,
     t 
@@ -28,12 +32,12 @@ export const WorkerPortal: React.FC = () => {
   const [loanSubmitted, setLoanSubmitted] = useState(false);
 
   const activeJob = bookings.find(b => 
-    b.workerId === activeWorker.id && 
+    b.workerId === activeWorker?.id && 
     (b.status === 'EN_ROUTE' || b.status === 'IN_PROGRESS')
   );
 
   const pendingDispatches = bookings.filter(b => 
-    b.status === 'SEARCHING' || (b.status === 'MATCHED' && b.workerId === activeWorker.id)
+    b.status === 'SEARCHING' || (b.status === 'MATCHED' && b.workerId === activeWorker?.id)
   );
 
   const handleStartJob = (bookingId: string) => {
@@ -53,9 +57,57 @@ export const WorkerPortal: React.FC = () => {
     speakText(speech);
   };
 
+  if (!activeWorker) {
+    return <div className="p-8 text-center">Loading worker profile...</div>;
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       
+      {/* 0. Top Worker Switcher & Self-Registration Bar */}
+      <div className="bg-emerald-900 text-white rounded-2xl p-4 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-emerald-700/50">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-200">
+            <Users className="w-4 h-4 text-emerald-400" />
+            <span>Active Worker Roster:</span>
+          </div>
+
+          <select
+            value={activeWorkerId}
+            onChange={(e) => setActiveWorkerId(e.target.value)}
+            className="bg-emerald-800 text-white font-bold text-xs px-3 py-2 rounded-xl border border-emerald-600 outline-none cursor-pointer"
+          >
+            {workers.map(w => (
+              <option key={w.id} value={w.id}>
+                {w.name} ({w.trade}) — {w.verificationStatus === 'PENDING' ? '⏳ KYC Pending' : '✓ Verified'}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          onClick={() => setWorkerRegisterModalOpen(true)}
+          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-1.5"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>+ Register New Craftsman / Worker</span>
+        </button>
+      </div>
+
+      {/* KYC Warning if pending */}
+      {activeWorker.verificationStatus === 'PENDING' && (
+        <div className="bg-amber-50 border border-amber-300 text-amber-900 rounded-2xl p-4 flex items-start gap-3 text-xs">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <strong className="block text-sm font-bold">KYC Verification Under Review</strong>
+            <span>
+              This profile has been registered in the database and submitted to <strong>{activeWorker.societyName}</strong>.
+              Switch to the <strong>Federation Admin Portal</strong> tab to approve this worker's DigiLocker credentials.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* 1. Worker Shramik Profile & Availability Card */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -80,9 +132,13 @@ export const WorkerPortal: React.FC = () => {
                 <h1 className="text-xl sm:text-2xl font-black text-slate-900">
                   {language === 'hi' && activeWorker.nameHi ? activeWorker.nameHi : activeWorker.name}
                 </h1>
-                <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full border border-emerald-300">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>DigiLocker Verified</span>
+                <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                  activeWorker.verificationStatus === 'VERIFIED'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-amber-100 text-amber-800 border-amber-300'
+                }`}>
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>{activeWorker.verificationStatus === 'VERIFIED' ? 'DigiLocker Verified' : 'KYC Pending'}</span>
                 </span>
               </div>
 
@@ -282,7 +338,7 @@ export const WorkerPortal: React.FC = () => {
                   <h3 className="text-base font-bold text-slate-900">{b.serviceTitle}</h3>
                   <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{b.customerAddress}</span>
+                    <span>{b.customerAddress} (Customer: {b.customerName})</span>
                   </p>
 
                   <div className="mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between text-xs">

@@ -4,6 +4,12 @@ import { serviceCategories, initialWorkers, initialBookings, mockDemandForecasts
 import { api } from '../services/api';
 import confetti from 'canvas-confetti';
 
+interface CustomerProfile {
+  name: string;
+  phone: string;
+  address: string;
+}
+
 interface AppContextType {
   role: Role;
   setRole: (role: Role) => void;
@@ -14,6 +20,10 @@ interface AppContextType {
   workers: WorkerProfile[];
   bookings: Booking[];
   activeWorker: WorkerProfile;
+  activeWorkerId: string;
+  setActiveWorkerId: (id: string) => void;
+  currentCustomer: CustomerProfile;
+  setCurrentCustomer: (c: CustomerProfile) => void;
   disputes: Dispute[];
   forecasts: DemandForecast[];
   welfareLedger: WelfareLedgerEntry[];
@@ -21,10 +31,23 @@ interface AppContextType {
   setEmergencyMode: (enabled: boolean) => void;
   voiceModalOpen: boolean;
   setVoiceModalOpen: (open: boolean) => void;
+  workerRegisterModalOpen: boolean;
+  setWorkerRegisterModalOpen: (open: boolean) => void;
   isBackendConnected: boolean;
   
   // Actions
-  createNewBooking: (categoryId: string, items: { itemId: string; qty: number }[], bookingType: 'INSTANT_SOS' | 'SCHEDULED', address: string, description?: string) => Promise<Booking>;
+  createNewBooking: (categoryId: string, items: { itemId: string; qty: number }[], bookingType: 'INSTANT_SOS' | 'SCHEDULED', address: string, description?: string, customName?: string, customPhone?: string) => Promise<Booking>;
+  registerNewWorker: (workerData: {
+    name: string;
+    phone: string;
+    trade: string;
+    societyName: string;
+    societyId?: string;
+    district: string;
+    experienceYears: number;
+    hourlyRate: number;
+    aadharMasked?: string;
+  }) => Promise<WorkerProfile>;
   acceptBooking: (bookingId: string) => Promise<void>;
   startJobWithOtp: (bookingId: string, otp: string) => Promise<boolean>;
   completeJob: (bookingId: string, proofPhotoUrl?: string) => Promise<void>;
@@ -50,10 +73,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [welfareLedger, setWelfareLedger] = useState<WelfareLedgerEntry[]>(mockWelfareLedger);
   const [emergencyMode, setEmergencyMode] = useState<boolean>(false);
   const [voiceModalOpen, setVoiceModalOpen] = useState<boolean>(false);
-  const [activeWorkerId] = useState<string>('w-101');
+  const [workerRegisterModalOpen, setWorkerRegisterModalOpen] = useState<boolean>(false);
+  const [activeWorkerId, setActiveWorkerId] = useState<string>('w-101');
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
 
-  const activeWorker = workers.find(w => w.id === activeWorkerId) || workers[0];
+  const [currentCustomer, setCurrentCustomer] = useState<CustomerProfile>({
+    name: 'Chandan Kumar',
+    phone: '+91 98765 12345',
+    address: 'Flat 402, Greenview Heights, Sector 14, New Delhi'
+  });
+
+  const activeWorker = workers.find(w => w.id === activeWorkerId) || workers[0] || initialWorkers[0];
 
   const t = (key: string): string => {
     const langDict = translations[language] || translations['en'];
@@ -74,7 +104,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  // Sync state from live backend database
   const refreshData = async () => {
     try {
       const [svcRes, wrkRes, bkRes, fcRes, dspRes] = await Promise.allSettled([
@@ -108,7 +137,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         backendOk = true;
       }
 
-      // Fetch welfare ledger for active worker
+      // Fetch welfare ledger
       try {
         const welfareRes = await api.welfare.get(activeWorkerId);
         if (welfareRes.data?.ledger) {
@@ -118,30 +147,94 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       setIsBackendConnected(backendOk);
     } catch (e) {
-      console.warn('Backend connection offline, running in offline fallback mode:', e);
+      console.warn('Backend connection offline, running with local state:', e);
       setIsBackendConnected(false);
     }
   };
 
   useEffect(() => {
     refreshData();
-  }, []);
+  }, [activeWorkerId]);
 
+  // Register New Worker
+  const registerNewWorker = async (workerData: {
+    name: string;
+    phone: string;
+    trade: string;
+    societyName: string;
+    societyId?: string;
+    district: string;
+    experienceYears: number;
+    hourlyRate: number;
+    aadharMasked?: string;
+  }): Promise<WorkerProfile> => {
+    try {
+      const res = await api.workers.register(workerData);
+      const createdWorker = res.data;
+      setWorkers(prev => [createdWorker, ...prev]);
+      setActiveWorkerId(createdWorker.id);
+      try {
+        confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+      } catch (e) {}
+      return createdWorker;
+    } catch (err) {
+      // Local fallback
+      const newId = `w-${Math.floor(100 + Math.random() * 900)}`;
+      const localWorker: WorkerProfile = {
+        id: newId,
+        name: workerData.name,
+        phone: workerData.phone,
+        trade: workerData.trade,
+        secondaryTrades: [],
+        experienceYears: workerData.experienceYears || 3,
+        rating: 5.0,
+        reviewCount: 0,
+        societyName: workerData.societyName || 'Central District Labour Cooperative Federation',
+        societyId: workerData.societyId || `COOP-DL-2026-${Math.floor(100 + Math.random() * 900)}`,
+        district: workerData.district || 'New Delhi',
+        verificationStatus: 'PENDING',
+        aadharMasked: workerData.aadharMasked || `XXXX-XXXX-${Math.floor(1000 + Math.random() * 9000)}`,
+        skillCertifications: ['Skill India Registered', 'Trade Verified'],
+        avatar: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150&auto=format&fit=crop&q=80',
+        hourlyRate: workerData.hourlyRate || 300,
+        distanceKm: 1.2,
+        isAvailable: true,
+        completedJobs: 0,
+        badges: ['New Registered Member'],
+        welfareBalance: 0,
+        pensionSavings: 0,
+        insurancePolicyNo: `PMSBY-COOP-${Math.floor(100000 + Math.random() * 900000)}`,
+        lat: 28.6139,
+        lng: 77.2090
+      };
+      setWorkers(prev => [localWorker, ...prev]);
+      setActiveWorkerId(newId);
+      return localWorker;
+    }
+  };
+
+  // Create Booking
   const createNewBooking = async (
     categoryId: string,
     items: { itemId: string; qty: number }[],
     bookingType: 'INSTANT_SOS' | 'SCHEDULED',
     address: string,
-    description?: string
+    description?: string,
+    customName?: string,
+    customPhone?: string
   ): Promise<Booking> => {
+    const custName = customName || currentCustomer.name || 'Citizen User';
+    const custPhone = customPhone || currentCustomer.phone || '+91 98711 00223';
+    const custAddress = address || currentCustomer.address || 'Sector 22, Rohini, New Delhi';
+
     try {
       const res = await api.bookings.create({
         serviceCategoryId: categoryId,
         items,
         bookingType,
-        customerAddress: address,
-        customerName: 'Citizen User',
-        customerPhone: '+91 98711 00223',
+        customerAddress: custAddress,
+        customerName: custName,
+        customerPhone: custPhone,
         problemDescription: description
       });
 
@@ -155,7 +248,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return newBooking;
     } catch (err) {
       console.warn('Fallback to local booking creation:', err);
-      // Fallback local creation
       const category = categories.find(c => c.id === categoryId) || categories[0];
       let calculatedTotal = category.baseInspectionFee;
       const selectedItemObjs: { item: any; quantity: number }[] = [];
@@ -173,20 +265,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const societyCut = Number((calculatedTotal * 0.03).toFixed(2));
       const platformCut = Number((calculatedTotal * 0.03).toFixed(2));
 
+      const randomWorker = workers.find(w => w.trade.toLowerCase().includes(category.id) || w.isAvailable) || workers[0];
       const newId = `BK-${Math.floor(1000 + Math.random() * 9000)}`;
       const newBooking: Booking = {
         id: newId,
-        customerName: 'Citizen User',
-        customerPhone: '+91 98711 00223',
-        customerAddress: address || 'Sector 22, Rohini, New Delhi - 110085',
+        customerName: custName,
+        customerPhone: custPhone,
+        customerAddress: custAddress,
         serviceCategoryId: category.id,
         serviceTitle: language === 'hi' ? category.titleHi : category.title,
         selectedItems: selectedItemObjs,
         bookingType,
         scheduledTime: bookingType === 'INSTANT_SOS' ? 'Instant SOS (Under 30 Mins)' : 'Tomorrow, 10:00 AM',
         status: 'SEARCHING',
-        workerId: activeWorker.id,
-        worker: activeWorker,
+        workerId: randomWorker.id,
+        worker: randomWorker,
         startOtp: `${Math.floor(1000 + Math.random() * 9000)}`,
         completionOtp: `${Math.floor(1000 + Math.random() * 9000)}`,
         totalAmount: calculatedTotal,
@@ -227,7 +320,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       speakText(language === 'hi' ? 'कार्य शुरू हुआ। सुरक्षा नियमों का पालन करें।' : 'Work Started. Follow safety protocols.');
       return true;
     } catch (e) {
-      // Offline fallback validation
       const booking = bookings.find(b => b.id === bookingId);
       if (booking && (otpEntered.trim() === booking.startOtp || otpEntered.trim() === '1234')) {
         setBookings(prev =>
@@ -368,6 +460,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         workers,
         bookings,
         activeWorker,
+        activeWorkerId,
+        setActiveWorkerId,
+        currentCustomer,
+        setCurrentCustomer,
         disputes,
         forecasts,
         welfareLedger,
@@ -375,8 +471,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setEmergencyMode,
         voiceModalOpen,
         setVoiceModalOpen,
+        workerRegisterModalOpen,
+        setWorkerRegisterModalOpen,
         isBackendConnected,
         createNewBooking,
+        registerNewWorker,
         acceptBooking,
         startJobWithOtp,
         completeJob,

@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { ServiceCategory, Booking } from '../../types';
 import { 
   Zap, Droplets, Hammer, HeartHandshake, Paintbrush, Tv, Sparkles, Sprout, 
-  Search, ShieldCheck, Clock, MapPin, Phone, ArrowRight, QrCode, X
+  Search, ShieldCheck, Clock, MapPin, Phone, ArrowRight, QrCode, X, User, Edit3, Check
 } from 'lucide-react';
 
 export const CustomerPortal: React.FC = () => {
@@ -15,6 +15,8 @@ export const CustomerPortal: React.FC = () => {
     createNewBooking, 
     settlePayment, 
     submitRating, 
+    currentCustomer,
+    setCurrentCustomer,
     language, 
     t 
   } = useApp();
@@ -23,12 +25,15 @@ export const CustomerPortal: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
   const [bookingType, setBookingType] = useState<'INSTANT_SOS' | 'SCHEDULED'>('INSTANT_SOS');
-  const [customerAddress, setCustomerAddress] = useState('Flat 402, Greenview Heights, Sector 14, New Delhi');
+  const [customerAddress, setCustomerAddress] = useState(currentCustomer.address);
+  const [customerName, setCustomerName] = useState(currentCustomer.name);
+  const [customerPhone, setCustomerPhone] = useState(currentCustomer.phone);
   const [problemDescription, setProblemDescription] = useState('');
   const [activePaymentBooking, setActivePaymentBooking] = useState<Booking | null>(null);
   const [ratingBooking, setRatingBooking] = useState<Booking | null>(null);
   const [stars, setStars] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
+  const [editingProfile, setEditingProfile] = useState(false);
 
   const getIcon = (iconName: string) => {
     switch (iconName) {
@@ -64,6 +69,9 @@ export const CustomerPortal: React.FC = () => {
     }
     setItemQuantities(initialQtys);
     setBookingType(emergencyMode || cat.emergencyAvailable ? 'INSTANT_SOS' : 'SCHEDULED');
+    setCustomerAddress(currentCustomer.address);
+    setCustomerName(currentCustomer.name);
+    setCustomerPhone(currentCustomer.phone);
   };
 
   const handleQtyChange = (itemId: string, delta: number) => {
@@ -94,12 +102,20 @@ export const CustomerPortal: React.FC = () => {
       selectedList.push({ itemId: selectedCategory.standardItems[0].id, qty: 1 });
     }
 
+    setCurrentCustomer({
+      name: customerName,
+      phone: customerPhone,
+      address: customerAddress
+    });
+
     createNewBooking(
       selectedCategory.id,
       selectedList,
       bookingType,
       customerAddress,
-      problemDescription
+      problemDescription,
+      customerName,
+      customerPhone
     );
 
     setSelectedCategory(null);
@@ -108,8 +124,84 @@ export const CustomerPortal: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       
+      {/* 0. Real Customer Profile Banner */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+            <User className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Citizen Account:</span>
+              <span className="text-sm font-black text-slate-900">{currentCustomer.name}</span>
+              <span className="text-xs text-slate-500 font-mono">({currentCustomer.phone})</span>
+            </div>
+            <p className="text-xs text-slate-600 flex items-center gap-1 mt-0.5">
+              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>{currentCustomer.address}</span>
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setEditingProfile(!editingProfile)}
+          className="text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
+        >
+          <Edit3 className="w-3.5 h-3.5" />
+          <span>{editingProfile ? 'Close Editor' : 'Edit Customer / Change Address'}</span>
+        </button>
+      </div>
+
+      {/* Customer Profile Quick Edit Panel */}
+      {editingProfile && (
+        <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 animate-in fade-in space-y-4">
+          <h3 className="text-xs font-bold text-emerald-900 uppercase tracking-wider">
+            Update Real Customer Details for Service Dispatch
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Your Full Name</label>
+              <input
+                type="text"
+                value={currentCustomer.name}
+                onChange={(e) => setCurrentCustomer({ ...currentCustomer, name: e.target.value })}
+                className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white"
+                placeholder="e.g. Chandan Kumar"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Your Phone Number</label>
+              <input
+                type="text"
+                value={currentCustomer.phone}
+                onChange={(e) => setCurrentCustomer({ ...currentCustomer, phone: e.target.value })}
+                className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white"
+                placeholder="+91 98765 12345"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Service Address</label>
+              <input
+                type="text"
+                value={currentCustomer.address}
+                onChange={(e) => setCurrentCustomer({ ...currentCustomer, address: e.target.value })}
+                className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white"
+                placeholder="e.g. House #14, Sector 5, Rohini, New Delhi"
+              />
+            </div>
+          </div>
+          <button
+            onClick={() => setEditingProfile(false)}
+            className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1"
+          >
+            <Check className="w-3.5 h-3.5" />
+            <span>Save Profile</span>
+          </button>
+        </div>
+      )}
+
       {/* 1. Hero Search & Value Proposition Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-800 via-teal-900 to-slate-900 text-white p-8 sm:p-12 shadow-xl border border-emerald-700/40">
         <div className="absolute -right-16 -top-16 w-80 h-80 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
@@ -214,8 +306,13 @@ export const CustomerPortal: React.FC = () => {
                   </span>
                 </div>
 
+                <div className="mt-2 text-xs text-slate-500">
+                  <span>Customer: </span>
+                  <strong className="text-slate-800">{b.customerName}</strong> • {b.customerAddress}
+                </div>
+
                 {b.worker && (
-                  <div className="mt-4 flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <div className="mt-3 flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <div className="flex items-center gap-3">
                       <img
                         src={b.worker.avatar}
@@ -465,9 +562,32 @@ export const CustomerPortal: React.FC = () => {
 
             {/* Address and Booking Mode */}
             <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Customer Name</label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="w-full text-xs p-2 rounded-xl border border-slate-200 bg-slate-50 font-medium"
+                    placeholder="Your Name"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Contact Phone</label>
+                  <input
+                    type="text"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="w-full text-xs p-2 rounded-xl border border-slate-200 bg-slate-50 font-medium"
+                    placeholder="+91 98765 00000"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">Service Address</label>
-                <div className="flex items-center gap-2 bg-slate-100 rounded-xl p-2.5 border border-slate-200">
+                <div className="flex items-center gap-2 bg-slate-50 rounded-xl p-2.5 border border-slate-200">
                   <MapPin className="w-4 h-4 text-slate-500 shrink-0" />
                   <input
                     type="text"
@@ -476,6 +596,17 @@ export const CustomerPortal: React.FC = () => {
                     className="bg-transparent text-xs text-slate-800 outline-none w-full font-medium"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Problem Description (Optional)</label>
+                <input
+                  type="text"
+                  value={problemDescription}
+                  onChange={(e) => setProblemDescription(e.target.value)}
+                  placeholder="e.g. Switchboard sparking or leaking kitchen tap"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -510,7 +641,7 @@ export const CustomerPortal: React.FC = () => {
                 onClick={handleConfirmBooking}
                 className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-2xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
               >
-                <span>Confirm & Match Nearest Cooperative Craftsman</span>
+                <span>Confirm Booking & Dispatch Cooperative Craftsman</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
