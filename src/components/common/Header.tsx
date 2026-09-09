@@ -1,156 +1,103 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { AlertCircle, Mic, Globe, Users, Briefcase, Building2, Database } from 'lucide-react';
-import { Language } from '../../types';
+import { 
+  Building2, Mic, Globe, Zap, LogOut, User, Wrench, Shield
+} from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const { role, setRole, language, setLanguage, t, emergencyMode, setEmergencyMode, setVoiceModalOpen, bookings, isBackendConnected } = useApp();
-
-  const activeBookingCount = bookings.filter(b => b.status !== 'COMPLETED' && b.status !== 'CANCELLED').length;
-
-  const languages: { code: Language; label: string }[] = [
-    { code: 'en', label: 'English' },
-    { code: 'hi', label: 'हिन्दी' },
-    { code: 'ta', label: 'தமிழ்' },
-    { code: 'mr', label: 'मराठी' },
-    { code: 'bn', label: 'বাংলা' },
-    { code: 'te', label: 'తెలుగు' },
-  ];
+  const { 
+    currentUser, 
+    logout, 
+    language, 
+    setLanguage, 
+    setVoiceModalOpen,
+    emergencyMode,
+    setEmergencyMode
+  } = useApp();
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-      {/* Official Federation Affiliation Bar */}
-      <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white text-xs py-1.5 px-4">
-        <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
-          <div className="flex items-center gap-2 font-medium">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-            </span>
-            <span>🏛️ {t('govtAffiliation')}</span>
-          </div>
-          <div className="flex items-center gap-4 text-emerald-100 text-xs">
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold ${
-              isBackendConnected ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/40' : 'bg-amber-500/30 text-amber-200 border border-amber-400/40'
-            }`}>
-              <Database className="w-3 h-3" />
-              <span>{isBackendConnected ? 'DB LIVE (SQLite + Prisma)' : 'STANDALONE MODE'}</span>
-            </span>
-            <span className="hidden sm:inline">✓ DigiLocker Verified</span>
-            <span className="hidden sm:inline">✓ 100% Fair Wage Guarantee</span>
-            <span className="bg-emerald-600/60 px-2 py-0.5 rounded text-[11px] font-semibold text-white">
-              Coop ID: NLCF-IN-2026
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Navbar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-        <div className="flex items-center justify-between gap-4">
-          {/* Logo & Branding */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setRole('customer')}>
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 font-bold text-xl">
-              🤝
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-zinc-200/80">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between h-16">
+          
+          {/* Brand Logo */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-zinc-950 text-white flex items-center justify-center font-black text-sm shadow-sm">
+              <Building2 className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xl font-extrabold text-slate-900 tracking-tight">
-                  {language === 'hi' ? 'सहकार सेतु' : 'SahakarSetu'}
-                </span>
-                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded border border-emerald-300">
-                  COOPERATIVE
+              <div className="flex items-center gap-2">
+                <span className="font-black text-base tracking-tight text-zinc-900">SahakarSetu</span>
+                <span className="text-[10px] font-bold bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded font-mono">
+                  v2.0
                 </span>
               </div>
-              <p className="text-xs text-slate-500 hidden sm:block">
-                {t('tagline')}
-              </p>
+              <span className="text-[10px] font-semibold text-zinc-500 block -mt-0.5">सहकार सेतु • National Co-op Marketplace</span>
             </div>
           </div>
 
-          {/* Role Switcher Pill */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
-            <button
-              onClick={() => setRole('customer')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                role === 'customer'
-                  ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80 font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">{t('consumerPortal')}</span>
-              <span className="md:hidden">Citizen</span>
-            </button>
-
-            <button
-              onClick={() => setRole('worker')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all relative ${
-                role === 'worker'
-                  ? 'bg-emerald-600 text-white shadow-sm font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Briefcase className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">{t('workerPortal')}</span>
-              <span className="md:hidden">Worker</span>
-              {activeBookingCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute top-1 right-1" />
-              )}
-            </button>
-
-            <button
-              onClick={() => setRole('admin')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                role === 'admin'
-                  ? 'bg-slate-900 text-white shadow-sm font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">{t('adminPortal')}</span>
-              <span className="md:hidden">Admin</span>
-            </button>
-          </div>
-
-          {/* Quick Actions & Accessibility */}
+          {/* Authenticated User Profile Status & Logout */}
           <div className="flex items-center gap-2.5">
+            
+            {currentUser && (
+              <div className="hidden sm:flex items-center gap-2 bg-zinc-100 px-3 py-1.5 rounded-xl border border-zinc-200 text-xs">
+                {currentUser.role === 'customer' && <User className="w-3.5 h-3.5 text-zinc-600" />}
+                {currentUser.role === 'worker' && <Wrench className="w-3.5 h-3.5 text-emerald-600" />}
+                {currentUser.role === 'admin' && <Shield className="w-3.5 h-3.5 text-amber-600" />}
+                
+                <span className="font-black text-zinc-900">{currentUser.fullName || currentUser.email}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-white rounded border border-zinc-200 text-zinc-600">
+                  {currentUser.role}
+                </span>
+              </div>
+            )}
+
+            {/* SOS Emergency Toggle */}
             <button
               onClick={() => setEmergencyMode(!emergencyMode)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                emergencyMode
-                  ? 'bg-red-600 text-white border-red-700 shadow-md shadow-red-500/30 animate-pulse'
-                  : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border ${
+                emergencyMode 
+                  ? 'bg-rose-50 border-rose-300 text-rose-800' 
+                  : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100'
               }`}
-              title="Toggle Emergency Rapid Dispatch Mode"
+              title="Filter by 30-min SOS emergency trades"
             >
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">SOS 30-Min</span>
+              <Zap className={`w-3.5 h-3.5 ${emergencyMode ? 'text-rose-600 fill-rose-600 animate-pulse' : 'text-zinc-400'}`} />
+              <span className="hidden sm:inline">SOS 30m</span>
             </button>
 
+            {/* Voice Assistant */}
             <button
               onClick={() => setVoiceModalOpen(true)}
-              className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all"
-              title="Open Multilingual Voice Assistant"
+              className="p-2 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-700 transition-all"
+              title="Voice Assistant (Web Speech AI)"
             >
-              <Mic className="w-3.5 h-3.5 text-emerald-600 animate-bounce" />
-              <span className="hidden sm:inline">Voice</span>
+              <Mic className="w-4 h-4 text-emerald-600" />
             </button>
 
-            <div className="relative flex items-center bg-slate-100 rounded-lg border border-slate-200 px-2 py-1">
-              <Globe className="w-3.5 h-3.5 text-slate-500 mr-1" />
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as Language)}
-                aria-label="Select display language"
-                className="bg-transparent text-xs font-medium text-slate-700 outline-none cursor-pointer pr-1"
+            {/* Language Switcher */}
+            <button
+              onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-xs font-bold text-zinc-700"
+            >
+              <Globe className="w-3.5 h-3.5 text-zinc-500" />
+              <span>{language === 'en' ? 'हिन्दी' : 'English'}</span>
+            </button>
+
+            {/* Logout Action */}
+            {currentUser && (
+              <button
+                onClick={logout}
+                className="flex items-center gap-1 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                title="Sign out of your account"
               >
-                {languages.map(l => (
-                  <option key={l.code} value={l.code}>{l.label}</option>
-                ))}
-              </select>
-            </div>
+                <LogOut className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            )}
+
           </div>
+
         </div>
       </div>
     </header>

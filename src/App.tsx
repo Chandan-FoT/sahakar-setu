@@ -4,23 +4,39 @@ import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
 import { VoiceAssistantModal } from './components/common/VoiceAssistantModal';
 import { WorkerRegisterModal } from './components/worker/WorkerRegisterModal';
+import { AuthPage } from './components/auth/AuthPage';
 import { CustomerPortal } from './components/customer/CustomerPortal';
 import { WorkerPortal } from './components/worker/WorkerPortal';
 import { AdminPortal } from './components/admin/AdminPortal';
 
 const MainLayout: React.FC = () => {
-  const { role } = useApp();
+  const { currentUser } = useApp();
 
+  // 1. Unauthenticated Gateway: Render Auth Page if no user is logged in
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-900 font-sans">
+        <Header />
+        <VoiceAssistantModal />
+        <main className="flex-1">
+          <AuthPage />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // 2. Strict Role-Isolated Protected Portals
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
+    <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-900 font-sans">
       <Header />
       <VoiceAssistantModal />
       <WorkerRegisterModal />
 
       <main className="flex-1">
-        {role === 'customer' && <CustomerPortal />}
-        {role === 'worker' && <WorkerPortal />}
-        {role === 'admin' && <AdminPortal />}
+        {currentUser.role === 'customer' && <CustomerPortal />}
+        {currentUser.role === 'worker' && <WorkerPortal />}
+        {currentUser.role === 'admin' && <AdminPortal />}
       </main>
 
       <Footer />

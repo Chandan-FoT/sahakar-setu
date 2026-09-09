@@ -3,7 +3,16 @@ import { useApp } from '../../context/AppContext';
 import { Mic, MicOff, Volume2, X, Sparkles, ArrowRight } from 'lucide-react';
 
 export const VoiceAssistantModal: React.FC = () => {
-  const { voiceModalOpen, setVoiceModalOpen, language, createNewBooking, acceptBooking, bookings, speakText } = useApp();
+  const { 
+    voiceModalOpen, 
+    setVoiceModalOpen, 
+    language, 
+    postJobOffer, 
+    acceptWorkerBid, 
+    jobRequests, 
+    speakText 
+  } = useApp();
+
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [aiResponse, setAiResponse] = useState('');
@@ -73,14 +82,14 @@ export const VoiceAssistantModal: React.FC = () => {
     }
   };
 
-  const handleVoiceCommand = (command: string) => {
+  const handleVoiceCommand = async (command: string) => {
     const lower = command.toLowerCase();
 
     // 1. Worker Accept Command
     if (lower.includes('accept') || lower.includes('स्वीकार') || lower.includes('ha') || lower.includes('yes')) {
-      const pendingBooking = bookings.find(b => b.status === 'SEARCHING' || b.status === 'MATCHED');
-      if (pendingBooking) {
-        acceptBooking(pendingBooking.id);
+      const pendingJob = jobRequests.find(j => j.status === 'BIDDING_OPEN' || j.status === 'NEGOTIATING');
+      if (pendingJob && pendingJob.bids.length > 0) {
+        await acceptWorkerBid(pendingJob.id, pendingJob.bids[0].id);
         const msg = language === 'hi' ? 'कार्य सफलतापूर्वक स्वीकार कर लिया गया है।' : 'Job successfully accepted!';
         setAiResponse(msg);
         speakText(msg);
@@ -91,22 +100,34 @@ export const VoiceAssistantModal: React.FC = () => {
     // 2. Electrician booking
     if (lower.includes('electrician') || lower.includes('bijli') || lower.includes('fan') || lower.includes('इलेक्ट्रीशियन') || lower.includes('पंखा') || lower.includes('बिजली')) {
       const msg = language === 'hi' 
-        ? 'इलेक्ट्रीशियन सेवा खोजी जा रही है। नजदीकी प्रमाणित श्रमिक से जोड़ा जा रहा है।' 
-        : 'Finding certified cooperative electrician. Creating immediate booking with fair wage protection.';
+        ? 'इलेक्ट्रीशियन सेवा खोजी जा रही है। ₹350 का प्रस्ताव प्रसारित किया गया है।' 
+        : 'Broadcasting electrician job offer at ₹350 initial budget.';
       setAiResponse(msg);
       speakText(msg);
-      createNewBooking('electrician', [{ itemId: 'el-2', qty: 1 }], 'INSTANT_SOS', 'Pocket 4, Sector 15, Rohini');
+      await postJobOffer({
+        categoryId: 'electrician',
+        problemDescription: 'Fan/Switchboard repair requested via Voice Assistant',
+        initialBudget: 350,
+        customerAddress: 'Pocket 4, Sector 15, Rohini, New Delhi',
+        bookingType: 'INSTANT_SOS'
+      });
       return;
     }
 
     // 3. Plumber booking
     if (lower.includes('plumber') || lower.includes('leak') || lower.includes('water') || lower.includes('नल') || lower.includes('प्लंबर') || lower.includes('पानी')) {
       const msg = language === 'hi'
-        ? 'आपातकालीन प्लंबर सेवा खोजी जा रही है।'
-        : 'Emergency plumber dispatch initiated. Connecting you with nearest certified water works master.';
+        ? 'आपातकालीन प्लंबर सेवा खोजी जा रही है। ₹350 का प्रस्ताव भेजा गया है।'
+        : 'Broadcasting emergency plumber offer at ₹350 budget.';
       setAiResponse(msg);
       speakText(msg);
-      createNewBooking('plumber', [{ itemId: 'pl-1', qty: 1 }], 'INSTANT_SOS', 'Flat 301, Sector 9, Dwarka');
+      await postJobOffer({
+        categoryId: 'plumber',
+        problemDescription: 'Pipe leak fix requested via Voice Assistant',
+        initialBudget: 350,
+        customerAddress: 'Flat 301, Sector 9, Dwarka, New Delhi',
+        bookingType: 'INSTANT_SOS'
+      });
       return;
     }
 
@@ -114,10 +135,16 @@ export const VoiceAssistantModal: React.FC = () => {
     if (lower.includes('care') || lower.includes('nurse') || lower.includes('elder') || lower.includes('केयर') || lower.includes('बुजुर्ग')) {
       const msg = language === 'hi'
         ? 'वरिष्ठ नागरिक देखभाल सहायक बुक किया जा रहा है।'
-        : 'Cooperative verified senior care attendant assigned.';
+        : 'Cooperative senior care attendant request broadcasted.';
       setAiResponse(msg);
       speakText(msg);
-      createNewBooking('caregiver', [{ itemId: 'cg-1', qty: 1 }], 'SCHEDULED', 'A-84, Hauz Khas Enclave');
+      await postJobOffer({
+        categoryId: 'caregiver',
+        problemDescription: 'Elder care assistance requested via Voice Assistant',
+        initialBudget: 650,
+        customerAddress: 'A-84, Hauz Khas Enclave, New Delhi',
+        bookingType: 'SCHEDULED'
+      });
       return;
     }
 
@@ -132,13 +159,13 @@ export const VoiceAssistantModal: React.FC = () => {
   if (!voiceModalOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-100 relative overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-zinc-200 relative overflow-hidden animate-in fade-in">
         <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-500" />
 
         <button
           onClick={() => setVoiceModalOpen(false)}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition-all"
+          className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700 bg-zinc-100 hover:bg-zinc-200 p-1.5 rounded-full transition-all"
           aria-label="Close voice assistant"
         >
           <X className="w-5 h-5" />
@@ -149,13 +176,13 @@ export const VoiceAssistantModal: React.FC = () => {
             <Sparkles className="w-3.5 h-3.5" />
             <span>Multilingual AI Voice Assistant</span>
           </div>
-          <h3 className="text-xl font-bold text-slate-900">
+          <h3 className="text-xl font-black text-zinc-900">
             {language === 'hi' ? 'बोलें और सेवा बुक करें' : 'Speak to Book or Manage Service'}
           </h3>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-zinc-500 mt-1">
             {language === 'hi' 
               ? 'बिना टाइप किए अपनी भाषा में बोलकर तुरंत इलेक्ट्रीशियन, प्लंबर आदि बुक करें' 
-              : 'Hands-free voice recognition for workers and citizens in all regional languages'}
+              : 'Hands-free voice recognition for workers and citizens in Hindi and English'}
           </p>
         </div>
 
@@ -183,7 +210,7 @@ export const VoiceAssistantModal: React.FC = () => {
             </button>
           </div>
 
-          <span className="text-xs font-semibold text-slate-600 mt-4">
+          <span className="text-xs font-semibold text-zinc-600 mt-4">
             {isListening 
               ? (language === 'hi' ? 'सुन रहा हूँ... बोलिए' : 'Listening... Speak now') 
               : (language === 'hi' ? 'माइक दबाकर बोलें' : 'Tap microphone to speak')}
@@ -191,13 +218,13 @@ export const VoiceAssistantModal: React.FC = () => {
         </div>
 
         {transcript && (
-          <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 mb-3 text-center">
-            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">You said</span>
-            <p className="text-sm font-medium text-slate-800 italic">"{transcript}"</p>
+          <div className="bg-zinc-50 rounded-2xl p-3 border border-zinc-200 mb-3 text-center">
+            <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold block mb-1">You said</span>
+            <p className="text-xs font-medium text-zinc-800 italic">"{transcript}"</p>
           </div>
         )}
 
-        <div className="bg-emerald-50/70 rounded-xl p-3.5 border border-emerald-200/80 mb-4 flex items-start gap-2.5">
+        <div className="bg-emerald-50/80 rounded-2xl p-3.5 border border-emerald-200/80 mb-4 flex items-start gap-2.5">
           <Volume2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
           <div>
             <span className="text-xs font-bold text-emerald-900 block mb-0.5">SahakarSetu AI Voice</span>
@@ -206,7 +233,7 @@ export const VoiceAssistantModal: React.FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <span className="text-[11px] font-semibold text-slate-400 block">
+          <span className="text-[11px] font-semibold text-zinc-400 block">
             {language === 'hi' ? 'त्वरित उदाहरण आजमाएं:' : 'Or tap a sample voice prompt:'}
           </span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -216,10 +243,10 @@ export const VoiceAssistantModal: React.FC = () => {
                 setTranscript(cmd);
                 handleVoiceCommand(cmd);
               }}
-              className="text-left text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 p-2 rounded-lg transition-all text-slate-700 flex items-center justify-between"
+              className="text-left text-xs bg-zinc-100 hover:bg-emerald-50 hover:text-emerald-800 border border-zinc-200 hover:border-emerald-300 p-2 rounded-xl transition-all text-zinc-700 flex items-center justify-between"
             >
               <span>⚡ {language === 'hi' ? 'इलेक्ट्रीशियन बुक करें' : 'Book Electrician'}</span>
-              <ArrowRight className="w-3 h-3 text-slate-400" />
+              <ArrowRight className="w-3 h-3 text-zinc-400" />
             </button>
 
             <button
@@ -228,10 +255,10 @@ export const VoiceAssistantModal: React.FC = () => {
                 setTranscript(cmd);
                 handleVoiceCommand(cmd);
               }}
-              className="text-left text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 p-2 rounded-lg transition-all text-slate-700 flex items-center justify-between"
+              className="text-left text-xs bg-zinc-100 hover:bg-emerald-50 hover:text-emerald-800 border border-zinc-200 hover:border-emerald-300 p-2 rounded-xl transition-all text-zinc-700 flex items-center justify-between"
             >
               <span>🚰 {language === 'hi' ? 'आपातकालीन प्लंबर' : 'Emergency Plumber'}</span>
-              <ArrowRight className="w-3 h-3 text-slate-400" />
+              <ArrowRight className="w-3 h-3 text-zinc-400" />
             </button>
           </div>
         </div>

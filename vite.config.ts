@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   base: '/sahakar-setu/',
   server: {
+    host: true, // Expose to local network (WiFi / Hotspot for all 6 team members)
     port: 5173,
-    open: true
+    open: false
   }
 })

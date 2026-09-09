@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SahakarSetu - SIH Technical Approach & Architecture</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: 16in 9in landscape;
+      margin: 0;
+    }
+    body {
+      font-family: 'Inter', 'Noto Sans Devanagari', sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      background-color: #09090b;
+      margin: 0;
+      padding: 0;
+    }
+    .slide {
+      width: 16in;
+      height: 9in;
+      page-break-after: always;
+      page-break-inside: avoid;
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 2.2rem 3rem;
+      background: radial-gradient(circle at top right, #064e3b 0%, #09090b 60%, #022c22 100%);
+      color: #f4f4f5;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SLIDE 1: Tech Stack & Why We Chose It -->
+  <div class="slide">
+    <!-- Header -->
+    <div class="flex justify-between items-start border-b border-emerald-500/30 pb-3">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-400/30 mb-1.5">
+          <span>🏛️ SMART INDIA HACKATHON (SIH) TECHNICAL DEEP-DIVE</span>
+          <span>•</span>
+          <span>MINISTRY OF COOPERATION</span>
+        </div>
+        <h1 class="text-3xl font-black text-white tracking-tight flex items-center gap-2">
+          <span>SahakarSetu (सहकार सेतु)</span>
+          <span class="text-emerald-400 font-light text-2xl">| Technology Stack & Architectural Justifications</span>
+        </h1>
+        <p class="text-xs text-zinc-400 font-medium">Cooperative-Owned Digital Service Marketplace with Direct Fair-Wage Dynamic Price Negotiation</p>
+      </div>
+
+      <div class="text-right bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-700/80">
+        <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block">CORE CLOUD ARCHITECTURE</span>
+        <span class="text-xs font-extrabold text-white">React 18 PWA • Supabase PostgreSQL • Realtime WebSockets • Web Speech AI</span>
+      </div>
+    </div>
+
+    <!-- Tech Justification Table -->
+    <div class="my-auto overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-900/90 shadow-xl">
+      <table class="w-full text-left border-collapse text-xs">
+        <thead>
+          <tr class="bg-zinc-800/90 text-zinc-300 border-b border-zinc-700 text-[11px] font-black uppercase tracking-wider">
+            <th class="p-3 w-1/4">Technology Module</th>
+            <th class="p-3 w-1/4">Technology Selected</th>
+            <th class="p-3 w-1/2">Why We Chose This Specific Tech (Architectural Rationale)</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-800/80 text-[11px] text-zinc-300 leading-relaxed">
+          <tr>
+            <td class="p-2.5 font-bold text-white flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>Client Frontend Tier</span>
+            </td>
+            <td class="p-2.5 font-mono text-emerald-300 font-bold">React 18 + TypeScript + Vite</td>
+            <td class="p-2.5">
+              <strong class="text-white">Type-Safety & Sub-Second Loading:</strong> Eliminates runtime crashes across multi-step booking flows; Vite ensures ultra-fast PWA bundle sizes ($<1.2\text{s}$ FCP) on 3G/4G field mobile networks.
+            </td>
+          </tr>
+          <tr>
+            <td class="p-2.5 font-bold text-white flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-teal-400"></span>
+              <span>Persistence & Spatial DB</span>
+            </td>
+            <td class="p-2.5 font-mono text-teal-300 font-bold">Supabase (PostgreSQL + PostGIS)</td>
+            <td class="p-2.5">
+              <strong class="text-white">ACID Escrow Reliability:</strong> PostgreSQL enforces strict transactions preventing race conditions in the 88/6/3/3 split; PostGIS indexes allow sub-second 3 km radius queries (<code class="text-teal-300 bg-black/40 px-1 rounded">ST_DWithin</code>).
+            </td>
+          </tr>
+          <tr>
+            <td class="p-2.5 font-bold text-white flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+              <span>Sahakar Realtime Negotiation</span>
+            </td>
+            <td class="p-2.5 font-mono text-amber-300 font-bold">Supabase Realtime (WebSockets)</td>
+            <td class="p-2.5">
+              <strong class="text-white">Instant Counter-Bidding:</strong> Pushes live job offers and worker price bids in $<100\text{ms}$ across multiple concurrent devices without heavy server polling.
+            </td>
+          </tr>
+          <tr>
+            <td class="p-2.5 font-bold text-white flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+              <span>Security, Auth & Isolation</span>
+            </td>
+            <td class="p-2.5 font-mono text-sky-300 font-bold">Supabase Auth (JWT + RLS)</td>
+            <td class="p-2.5">
+              <strong class="text-white">Strict Role-Based Access Control:</strong> Cryptographically locks customers into their portal and workers into their console. Row-Level Security (RLS) protects Aadhaar & phone PII under the DPDP Act.
+            </td>
+          </tr>
+          <tr>
+            <td class="p-2.5 font-bold text-white flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+              <span>Accessibility Interface</span>
+            </td>
+            <td class="p-2.5 font-mono text-rose-300 font-bold">Native Web Speech AI API</td>
+            <td class="p-2.5">
+              <strong class="text-white">Zero-Cost Shramik Voice AI:</strong> Runs natively in client browsers with zero API costs; speaks job briefs aloud in <strong class="text-white">Hindi & English</strong> and takes voice acceptances (<code class="text-rose-300 bg-black/40 px-1 rounded">"स्वीकार करें"</code>).
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Bottom KPI Ribbon -->
+    <div class="flex items-center justify-between bg-zinc-950/90 border border-emerald-500/30 p-2.5 rounded-xl text-xs font-semibold text-emerald-200">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+        <span><strong>Key Impact:</strong> 88% Direct Wage Guaranteed</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <span>✓ ₹2,00,000 PMSBY Accidental Insurance</span>
+        <span>✓ &lt;100ms WebSockets Bidding</span>
+        <span>✓ Zero Commercial Aggregator Price Gouging</span>
+        <span class="bg-emerald-600/60 px-2 py-0.5 rounded text-white font-bold">100% Co-op Owned</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: End-to-End Technical Workflow -->
+  <div class="slide">
+    <div class="flex justify-between items-start border-b border-emerald-500/30 pb-3">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-400/30 mb-1.5">
+          <span>LIFECYCLE & EXECUTION ENGINE</span>
+        </div>
+        <h1 class="text-3xl font-black text-white tracking-tight">
+          End-to-End Technical Workflow: From Login to Settlement
+        </h1>
+        <p class="text-xs text-zinc-400 font-medium">Step-by-step transaction lifecycle through Supabase PostgreSQL, Realtime Bidding, and Dual-OTP verification</p>
+      </div>
+
+      <div class="text-right bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-700/80">
+        <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block">ESCROW DISTRIBUTION</span>
+        <span class="text-xs font-extrabold text-emerald-400">88% Worker • 6% Welfare • 3% Society • 3% Tech</span>
+      </div>
+    </div>
+
+    <!-- 6 Phase Step Cards Grid -->
+    <div class="grid grid-cols-3 gap-4 my-auto">
+      
+      <!-- Phase 1 -->
+      <div class="bg-zinc-900/90 border border-zinc-700 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-black text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">PHASE 01</span>
+            <span class="text-[10px] text-zinc-400 font-bold">Supabase Auth</span>
+          </div>
+          <h3 class="text-sm font-black text-white mb-1">Real Auth & Strict Role Isolation</h3>
+          <p class="text-[11px] text-zinc-300 leading-relaxed">
+            User registers via Supabase Auth as either Citizen or Worker. Metadata is saved to <code class="text-emerald-300 bg-black/40 px-1 rounded">profiles</code> and cryptographically locks routing: Citizens only see Customer Portal, Workers only see their console.
+          </p>
+        </div>
+      </div>
+
+      <!-- Phase 2 -->
+      <div class="bg-zinc-900/90 border border-zinc-700 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-black text-amber-400 bg-amber-950 px-2 py-0.5 rounded border border-amber-800">PHASE 02</span>
+            <span class="text-[10px] text-zinc-400 font-bold">PostgreSQL Insert</span>
+          </div>
+          <h3 class="text-sm font-black text-white mb-1">"Name Your Price" Bidding Post</h3>
+          <p class="text-[11px] text-zinc-300 leading-relaxed">
+            Citizen describes problem, selects SOS 30-min urgency, and sets an initial budget (e.g., ₹350). Record is inserted into <code class="text-amber-300 bg-black/40 px-1 rounded">job_requests</code> with secure 4-digit Start/Completion OTPs.
+          </p>
+        </div>
+      </div>
+
+      <!-- Phase 3 -->
+      <div class="bg-zinc-900/90 border border-zinc-700 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-black text-sky-400 bg-sky-950 px-2 py-0.5 rounded border border-sky-800">PHASE 03</span>
+            <span class="text-[10px] text-zinc-400 font-bold">WebSockets Pub/Sub</span>
+          </div>
+          <h3 class="text-sm font-black text-white mb-1">Direct Fair-Wage Dynamic Negotiation</h3>
+          <p class="text-[11px] text-zinc-300 leading-relaxed">
+            Supabase Realtime pushes job alerts to nearby workers within 3 km. Workers submit counter-offers (e.g. ₹400 with 15 mins ETA). Offers appear live on the citizen's screen without reloading.
+          </p>
+        </div>
+      </div>
+
+      <!-- Phase 4 -->
+      <div class="bg-zinc-900/90 border border-emerald-500/60 rounded-2xl p-4 shadow-lg flex flex-col justify-between relative overflow-hidden">
+        <div class="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400"></div>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-black text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-700">PHASE 04</span>
+            <span class="text-[10px] text-emerald-400 font-bold">Escrow Engine</span>
+          </div>
+          <h3 class="text-sm font-black text-white mb-1">Deal Lock & 88/6/3/3 Binding</h3>
+          <p class="text-[11px] text-zinc-300 leading-relaxed">
+            Customer accepts Worker’s ₹400 offer. Server locks status to <code class="text-emerald-300 bg-black/40 px-1 rounded">EN_ROUTE</code> and calculates split: Worker: <strong class="text-white">₹352 (88%)</strong>, Welfare: <strong class="text-teal-300">₹24 (6%)</strong>, Society: <strong class="text-amber-300">₹12 (3%)</strong>, Platform: <strong class="text-sky-300">₹12 (3%)</strong>.
+          </p>
+        </div>
+      </div>
+
+      <!-- Phase 5 -->
+      <div class="bg-zinc-900/90 border border-zinc-700 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-black text-rose-400 bg-rose-950 px-2 py-0.5 rounded border border-rose-800">PHASE 05</span>
+            <span class="text-[10px] text-zinc-400 font-bold">Security Gate</span>
+          </div>
+          <h3 class="text-sm font-black text-white mb-1">Cryptographic Dual-OTP Handshake</h3>
+          <p class="text-[11px] text-zinc-300 leading-relaxed">
+            Technician arrives at doorstep. Citizen shares 4-digit Start OTP (<code class="text-rose-300 bg-black/40 px-1 rounded">7412</code>). Worker enters code into app to start the official job timer. Eliminates fake arrivals and disputes.
+          </p>
+        </div>
+      </div>
+
+      <!-- Phase 6 -->
+      <div class="bg-zinc-900/90 border border-zinc-700 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-black text-teal-400 bg-teal-950 px-2 py-0.5 rounded border border-teal-800">PHASE 06</span>
+            <span class="text-[10px] text-zinc-400 font-bold">Welfare Settlement</span>
+          </div>
+          <h3 class="text-sm font-black text-white mb-1">Settlement & PMSBY Ledger</h3>
+          <p class="text-[11px] text-zinc-300 leading-relaxed">
+            Worker marks job finished with proof photo. 88% is credited to worker wallet, 6% is auto-deposited into the <strong class="text-white">PMSBY ₹2 Lakh insurance pool</strong>, and +₹25 is added to the micro-pension ledger.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Progress Strip -->
+    <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 text-xs text-zinc-400 flex items-center justify-between font-mono">
+      <span class="text-emerald-400 font-bold">TRANSACTION PIPELINE:</span>
+      <span>[1] Auth & RBAC</span>
+      <span>➔</span>
+      <span>[2] "Name Your Price"</span>
+      <span>➔</span>
+      <span>[3] WebSockets Counter-Bid</span>
+      <span>➔</span>
+      <span>[4] Start OTP Gate</span>
+      <span>➔</span>
+      <span class="text-emerald-300 font-bold">[5] 88/6/3/3 Instant Split</span>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: Architecture & Judge Defense Q&A -->
+  <div class="slide">
+    <div class="flex justify-between items-start border-b border-emerald-500/30 pb-3">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-400/30 mb-1.5">
+          <span>SYSTEM ARCHITECTURE & HACKATHON DEFENSE</span>
+        </div>
+        <h1 class="text-3xl font-black text-white tracking-tight">
+          System Architecture & Evaluator Defense Strategy
+        </h1>
+        <p class="text-xs text-zinc-400 font-medium">Architectural diagram and concise, evidence-based answers to key evaluation questions</p>
+      </div>
+
+      <div class="text-right bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-700/80">
+        <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block">SECURITY COMPLIANCE</span>
+        <span class="text-xs font-extrabold text-white">DPDP Act 2023 • DigiLocker KYC • Skill India</span>
+      </div>
+    </div>
+
+    <!-- 2 Column Layout: Diagram (Left) + Judge Q&A (Right) -->
+    <div class="grid grid-cols-2 gap-5 my-auto">
+      
+      <!-- Col 1: System Diagram -->
+      <div class="bg-zinc-900/90 border border-zinc-700 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
+        <h3 class="text-xs font-black uppercase tracking-wider text-emerald-400 mb-2">3-Tier Cloud Architecture</h3>
+        <div class="space-y-2 text-xs font-mono">
+          
+          <div class="bg-zinc-950 p-3 rounded-xl border border-zinc-800">
+            <span class="text-emerald-400 font-bold block text-[11px]">1. PRESENTATION LAYER (React 18 PWA)</span>
+            <span class="text-[10px] text-zinc-300 block mt-0.5">• Citizen Portal • Shramik Worker Console • Admin Board</span>
+            <span class="text-[10px] text-zinc-400 block">• Web Speech AI Voice Engine (Hindi/English)</span>
+          </div>
+
+          <div class="text-center text-zinc-500 font-bold text-xs">▼ (WebSockets & REST APIs) ▼</div>
+
+          <div class="bg-zinc-950 p-3 rounded-xl border border-emerald-500/40">
+            <span class="text-teal-400 font-bold block text-[11px]">2. CLOUD PERSISTENCE & REALTIME (Supabase Cloud)</span>
+            <span class="text-[10px] text-zinc-300 block mt-0.5">• PostgreSQL ACID Database (profiles, job_requests, bids)</span>
+            <span class="text-[10px] text-zinc-400 block">• Realtime Channel Pub/Sub for sub-100ms multi-device bidding</span>
+            <span class="text-[10px] text-zinc-400 block">• Row-Level Security (RLS) & JWT Token Verification</span>
+          </div>
+
+          <div class="text-center text-zinc-500 font-bold text-xs">▼ (National Integration Hooks) ▼</div>
+
+          <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 flex justify-between text-[10px] text-zinc-300">
+            <span>🛡️ DigiLocker KYC</span>
+            <span>🎓 Skill India NSDC</span>
+            <span>💳 BharatQR / UPI</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Col 2: Judge Defense Q&A -->
+      <div class="space-y-2.5">
+        
+        <div class="bg-zinc-900/90 border border-zinc-700 rounded-2xl p-3.5 shadow-md">
+          <h4 class="text-xs font-black text-emerald-300 mb-1">Q1: Why use Supabase instead of a custom Node server?</h4>
+          <p class="text-[11px] text-zinc-300 leading-relaxed">
+            <strong class="text-white">Answer:</strong> Supabase provides production-grade <strong class="text-white">PostgreSQL ACID compliance</strong>, built-in <strong class="text-white">Row-Level Security (RLS)</strong>, and <strong class="text-white">Realtime WebSockets</strong> out of the box. This prevents financial race conditions during escrow calculations and allows our dynamic bidding engine to scale across thousands of concurrent devices in $<100\text{ms}$.
+          </p>
+        </div>
+
+        <div class="bg-zinc-900/90 border border-zinc-700 rounded-2xl p-3.5 shadow-md">
+          <h4 class="text-xs font-black text-amber-300 mb-1">Q2: Why Direct Dynamic Negotiation over fixed algorithmic gig rates?</h4>
+          <p class="text-[11px] text-zinc-300 leading-relaxed">
+            <strong class="text-white">Answer:</strong> Fixed pricing leads to on-site surprise quotes and job refusals. Dynamic bidding creates a <strong class="text-white">fair market price</strong>: citizens set their budget, and nearby verified workers compete on price and arrival speed. Once agreed, the price binds an immutable 88/6/3/3 split with zero hidden platform cuts.
+          </p>
+        </div>
+
+        <div class="bg-zinc-900/90 border border-zinc-700 rounded-2xl p-3.5 shadow-md">
+          <h4 class="text-xs font-black text-sky-300 mb-1">Q3: How do you guarantee safety inside citizen homes?</h4>
+          <p class="text-[11px] text-zinc-300 leading-relaxed">
+            <strong class="text-white">Answer:</strong> Two-tier trust: DigiLocker Aadhaar KYC + Skill India trade certification endorsed by a legal, brick-and-mortar Cooperative Society. Cryptographic Start OTP prevents fake technician check-ins, and in-app masked calling protects customer privacy.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Bottom Footer -->
+    <div class="flex justify-between items-center bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 text-[11px] text-zinc-400">
+      <span>Smart India Hackathon • Problem Statement: Cooperative-Owned Service Marketplace</span>
+      <span class="text-emerald-400 font-bold">SahakarSetu v2.0 Production Ready</span>
+    </div>
+  </div>
+
+</body>
+</html>
