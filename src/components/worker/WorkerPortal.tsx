@@ -28,6 +28,7 @@ export const WorkerPortal: React.FC = () => {
   const [otpError, setOtpError] = useState(false);
   const [digitalPassOpen, setDigitalPassOpen] = useState(false);
   const [dismissedCompletedId, setDismissedCompletedId] = useState<string | null>(null);
+  const [radarFilter, setRadarFilter] = useState<'my_trade' | 'all'>('my_trade');
 
   // Bidding State
   const [biddingJobId, setBiddingJobId] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export const WorkerPortal: React.FC = () => {
   const isJobMatchingMyTrade = (job: any): boolean => {
     if (!activeWorker?.trade) return true;
     
-    const normalize = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normalize = (s: string) => (s || '').toLowerCase().trim();
     const jobCat = normalize(job.serviceCategoryId || '');
     const jobTitle = normalize(job.serviceTitle || '');
     const wTrade = normalize(activeWorker.trade || '');
@@ -62,18 +63,21 @@ export const WorkerPortal: React.FC = () => {
     // 1. Direct or substring matching
     for (const t of workerTrades) {
       if (!t) continue;
-      if (jobCat.includes(t) || t.includes(jobCat)) return true;
-      if (jobTitle.includes(t) || t.includes(jobTitle)) return true;
+      if (jobCat && (jobCat.includes(t) || t.includes(jobCat))) return true;
+      if (jobTitle && (jobTitle.includes(t) || t.includes(jobTitle))) return true;
     }
 
     // 2. Keyword category bucket matching
     const keywordMap: Record<string, string[]> = {
       electrician: ['electr', 'power', 'wire', 'mcb', 'switch', 'inverter', 'voltage', 'इलेक्ट्रीशियन', 'बिजली', 'विद्युत'],
-      plumber: ['plumb', 'water', 'pipe', 'drain', 'leak', 'tank', 'tap', 'प्लंबर', 'नल', 'पानी'],
-      carpenter: ['carpent', 'wood', 'furnitur', 'door', 'lock', 'bed', 'almirah', 'बढ़ई', 'फर्नीचर'],
-      elderly_care: ['elder', 'care', 'patient', 'nurs', 'attendant', 'बुजुर्ग', 'मरीज', 'देखभाल'],
-      appliance: ['appliance', 'ac', 'fridge', 'refrigerator', 'washing', 'microwave', 'कूलिंग', 'एसी'],
-      cleaning: ['clean', 'sanitat', 'wash', 'sweep', 'dust', 'polishing', 'सफाई', 'स्वच्छता']
+      plumber: ['plumb', 'water', 'pipe', 'drain', 'leak', 'tank', 'tap', 'motor', 'pump', 'प्लंबर', 'नल', 'पानी'],
+      carpenter: ['carpent', 'wood', 'furnitur', 'door', 'lock', 'bed', 'almirah', 'hinge', 'बढ़ई', 'फर्नीचर'],
+      caregiver: ['care', 'elder', 'patient', 'nurs', 'attendant', 'बुजुर्ग', 'मरीज', 'देखभाल', 'caregiver', 'senior'],
+      elderly_care: ['care', 'elder', 'patient', 'nurs', 'attendant', 'बुजुर्ग', 'मरीज', 'देखभाल', 'caregiver', 'senior'],
+      appliance: ['appliance', 'ac', 'fridge', 'refrigerator', 'washing', 'microwave', 'कूलिंग', 'एसी', 'उपकरण'],
+      cleaning: ['clean', 'sanitat', 'wash', 'sweep', 'dust', 'polishing', 'सफाई', 'स्वच्छता'],
+      painter: ['paint', 'color', 'putty', 'primer', 'wall', 'रंगाई', 'पेंट'],
+      gardener: ['garden', 'plant', 'grass', 'lawn', 'tree', 'माली', 'पौधे']
     };
 
     for (const [key, kws] of Object.entries(keywordMap)) {
@@ -87,12 +91,17 @@ export const WorkerPortal: React.FC = () => {
     return false;
   };
 
-  // Open jobs strictly matching this worker's registered trade skill
-  const openRadarJobs = jobRequests.filter(j => 
+  // All open jobs in system (ready for bidding)
+  const allOpenJobs = jobRequests.filter(j => 
     (j.status === 'BIDDING_OPEN' || j.status === 'NEGOTIATING') &&
-    j.selectedWorkerId !== activeWorker?.id &&
-    isJobMatchingMyTrade(j)
+    j.selectedWorkerId !== activeWorker?.id
   );
+
+  // Open jobs matching worker's trade
+  const tradeMatchingJobs = allOpenJobs.filter(j => isJobMatchingMyTrade(j));
+
+  // The jobs to display on the radar based on the toggle (defaults to matching trade)
+  const openRadarJobs = radarFilter === 'my_trade' ? tradeMatchingJobs : allOpenJobs;
 
   const handleOpenBidModal = (job: any) => {
     setBiddingJobId(job.id);
@@ -339,21 +348,70 @@ export const WorkerPortal: React.FC = () => {
 
       {/* 3. Live Dispatch Radar (Incoming Requests for Direct Bidding) */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
             <h2 className="text-lg font-black text-zinc-900">
               {language === 'hi' ? 'नजदीकी कार्य रडार (Live Dispatch Radar)' : 'Live Hyperlocal Dispatch Radar'}
             </h2>
           </div>
-          <span className="text-xs text-zinc-500 font-bold">{openRadarJobs.length} Open Requests</span>
+          
+          {/* Radar Category Filter Toggle */}
+          <div className="flex items-center gap-1.5 bg-zinc-100 p-1 rounded-xl border border-zinc-200 text-xs font-bold self-start sm:self-auto">
+            <button
+              onClick={() => setRadarFilter('my_trade')}
+              className={`px-3 py-1 rounded-lg transition-all ${
+                radarFilter === 'my_trade'
+                  ? 'bg-zinc-900 text-white shadow-sm'
+                  : 'text-zinc-600 hover:text-zinc-900'
+              }`}
+            >
+              {language === 'hi' ? 'मेरा व्यवसाय' : 'My Trade'} ({tradeMatchingJobs.length})
+            </button>
+            <button
+              onClick={() => setRadarFilter('all')}
+              className={`px-3 py-1 rounded-lg transition-all ${
+                radarFilter === 'all'
+                  ? 'bg-zinc-900 text-white shadow-sm'
+                  : 'text-zinc-600 hover:text-zinc-900'
+              }`}
+            >
+              {language === 'hi' ? 'सभी क्षेत्र' : 'All Sectors'} ({allOpenJobs.length})
+            </button>
+          </div>
         </div>
+
+        {/* Informative alert if my_trade is empty but requests exist in other sectors */}
+        {radarFilter === 'my_trade' && tradeMatchingJobs.length === 0 && allOpenJobs.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-900">
+            <div className="flex items-center gap-2">
+              <span className="text-base">ℹ️</span>
+              <span>
+                {language === 'hi'
+                  ? `आपके व्यवसाय (${activeWorker?.trade || 'Electrician'}) में कोई नया अनुरोध नहीं है, लेकिन अन्य श्रेणियों में ${allOpenJobs.length} अनुरोध उपलब्ध हैं।`
+                  : `No requests right now in your trade (${activeWorker?.trade || 'Electrician'}). However, ${allOpenJobs.length} open request(s) exist in other sectors.`}
+              </span>
+            </div>
+            <button
+              onClick={() => setRadarFilter('all')}
+              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-[11px] shrink-0 transition-colors"
+            >
+              {language === 'hi' ? 'सभी देखें' : 'View All'}
+            </button>
+          </div>
+        )}
 
         {openRadarJobs.length === 0 ? (
           <div className="bg-white rounded-2xl border border-zinc-200 p-8 text-center">
             <CheckCircle className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-            <h3 className="text-xs font-bold text-zinc-800">Radar Active — Listening for Household Requests</h3>
-            <p className="text-[11px] text-zinc-500 mt-0.5">You will hear an audio alert when a nearby citizen posts a job in your sector.</p>
+            <h3 className="text-xs font-bold text-zinc-800">
+              {radarFilter === 'my_trade'
+                ? `Radar Active (${activeWorker?.trade || 'Electrician'}) — Listening for Household Requests`
+                : 'Radar Active — Listening for Household Requests across all sectors'}
+            </h3>
+            <p className="text-[11px] text-zinc-500 mt-0.5">
+              You will hear an audio alert when a nearby citizen posts a job request.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

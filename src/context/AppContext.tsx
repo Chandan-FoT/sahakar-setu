@@ -706,16 +706,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return updated;
     });
 
+    // Validate whether customer_id exists in profiles before inserting
+    let validCustomerId: string | null = null;
+    if (currentCustomer.id) {
+      try {
+        const { data: pData } = await supabase.from('profiles').select('id').eq('id', currentCustomer.id).maybeSingle();
+        if (pData?.id) {
+          validCustomerId = pData.id;
+        }
+      } catch (e) {}
+    }
+
     try {
       await supabase.from('job_requests').insert({
         id: newId,
-        customer_id: currentCustomer.id,
-        customer_name: currentCustomer.name,
-        customer_phone: currentCustomer.phone,
-        customer_address: customerAddress || currentCustomer.address,
+        customer_id: validCustomerId,
+        customer_name: currentCustomer.name || 'Citizen Member',
+        customer_phone: currentCustomer.phone || '+91 98765 00000',
+        customer_address: customerAddress || currentCustomer.address || 'New Delhi',
         service_category_id: category.id,
         service_title: category.title,
-        problem_description: problemDescription,
+        problem_description: problemDescription || 'General diagnostic and repair requested.',
         booking_type: bookingType,
         initial_budget: Number(initialBudget) || category.baseInspectionFee,
         status: 'BIDDING_OPEN',
@@ -776,14 +787,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return updated;
     });
 
+    // Validate worker_id in worker_profiles before insert
+    let validWorkerId: string | null = null;
+    if (activeWorker.id) {
+      try {
+        const { data: wCheck } = await supabase.from('worker_profiles').select('id').eq('id', activeWorker.id).maybeSingle();
+        if (wCheck?.id) {
+          validWorkerId = wCheck.id;
+        }
+      } catch (e) {}
+    }
+
     try {
       await supabase.from('bids_negotiations').insert({
         id: newBidId,
         job_request_id: jobId,
-        worker_id: activeWorker.id,
+        worker_id: validWorkerId,
         worker_name: activeWorker.name,
         worker_avatar: activeWorker.avatar,
-        worker_trade: activeWorker.trade,
+        worker_trade: activeWorker.trade || 'Electrician & Power Care',
         worker_rating: activeWorker.rating,
         worker_society: activeWorker.societyName,
         proposed_price: Number(proposedPrice),
@@ -875,11 +897,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const societyCut = Number((agreedPrice * 0.03).toFixed(2));
       const platformCut = Number((agreedPrice * 0.03).toFixed(2));
 
+      let validWorkerId: string | null = null;
+      const wId = (chosenBid as BidNegotiation).workerId;
+      if (wId) {
+        try {
+          const { data: wCheck } = await supabase.from('worker_profiles').select('id').eq('id', wId).maybeSingle();
+          if (wCheck?.id) validWorkerId = wCheck.id;
+        } catch (e) {}
+      }
+
       try {
         await supabase.from('job_requests').update({
           status: 'EN_ROUTE',
           agreed_price: agreedPrice,
-          selected_worker_id: (chosenBid as BidNegotiation).workerId,
+          selected_worker_id: validWorkerId,
           worker_wage: workerWage,
           welfare_cut: welfareCut,
           society_cut: societyCut,

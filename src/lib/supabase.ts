@@ -2,14 +2,17 @@ import { createClient } from '@supabase/supabase-js';
 import { AuthUser } from '../types/marketplace';
 import { sendRealSmsOtp } from './smsService';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const PROD_SUPABASE_URL = 'https://ntjuhkngsudmkqpmigtk.supabase.co';
+const PROD_SUPABASE_ANON_KEY = 'sb_publishable_yaWf8QT9Wy73xPhu9dVjOw_SLxX-4J1';
 
-export const isConfigured = Boolean(supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('your-project-id'));
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || PROD_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || PROD_SUPABASE_ANON_KEY;
+
+export const isConfigured = Boolean(supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('placeholder'));
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key',
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
       persistSession: true,
