@@ -1,305 +1,324 @@
-# SahakarSetu (सहकार सेतु) — Software Requirements Specification (SRS)
-### Cooperative-Owned Digital Service Marketplace Platform
-**Smart India Hackathon (SIH) | Ministry of Cooperation & National Labour Cooperative Federations**
+# SahakarSetu (सहकार सेतु) — System Requirements & Architecture Specification
+
+**Decentralized Cooperative-Owned Digital Service Marketplace**  
+*Built for the National Labour Cooperative Federation (NLCF) & Ministry of Cooperation*  
+*Smart India Hackathon (SIH) | Production-Grade Reference Implementation*
 
 ---
 
-## 1. Executive Summary & Problem Context
+## 1. Executive Summary & Core Concept
 
-### 1.1 Background
-Labour Cooperative Federations and Primary Labour Cooperative Societies in India represent a vast pool of certified, skilled blue-collar and pink-collar tradespeople (electricians, plumbers, carpenters, painters, domestic caregivers, HVAC technicians, gardeners, and facility cleaners). However, these workers remain underutilized and economically marginalized due to the absence of a dedicated digital discovery, scheduling, and payment marketplace.
+**SahakarSetu (सहकार सेतु)** is a decentralized, cooperative-owned digital home and facility service marketplace. It eliminates predatory commercial aggregators (who charge 25%–35% commissions and impose algorithmic penalties) by connecting verified, skilled tradespeople from Primary Labour Cooperative Societies directly with citizens and institutions.
 
-### 1.2 Problem Statement
-Commercial service aggregator platforms currently monopolize the urban home services market. They impose predatory commission fees (25%–35%), enforce algorithmic penalty systems, lack social security integration, and engage in surge pricing that harms consumers while keeping workers economically insecure.
-
-### 1.3 Project Objective
-**SahakarSetu** is a decentralized, cooperative-owned digital service marketplace that connects verified skilled craftsmen from Labour Cooperative Federations with households and institutions. The platform enforces an immutable **88/6/3/3 fair wage escrow split**, integrates **two-tier DigiLocker & Skill India KYC verification**, provides an **offline-first PWA with a multilingual AI voice interface**, and incorporates **predictive AI demand forecasting** for weather and festival surges.
+### Core Value Pillars:
+- **88/6/3/3 Fair-Wage Model**: 88% goes directly to the worker's wallet, 6% to worker social security (PMSBY accident insurance + micro-pensions), 3% to the Primary Cooperative Society reserve fund, and 3% for technology maintenance.
+- **Democratic Dynamic Negotiation**: Transparent, two-way bidding between customer and worker with guaranteed wage floors.
+- **Cryptographic Security Handshake**: Physical 4-digit Start OTP validation prevents unauthorized starts or ghost billing.
+- **Real BharatQR & UPI Payment**: Direct mobile payments settled via dynamic QR and deep links (`chandan.bank@pingpay`).
+- **Multilingual Voice AI**: Speech synthesis and recognition in Hindi and English tailored for low-literacy craftsmen.
 
 ---
 
-## 2. User Roles & Stakeholder Personas
+## 2. Complete End-to-End Application Flow
 
-| Role | Persona / User Type | Core Responsibilities & Objectives |
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer as 🏠 Citizen / Customer
+    actor Worker as 👷 Cooperative Craftsman
+    participant App as ⚡ SahakarSetu (React + Context)
+    participant Cloud as 🗄️ Supabase Cloud (PostgreSQL)
+
+    Note over Customer,Worker: Step 1: Authentication & Identity
+    Customer->>App: Sign up / Log in via Mobile Number + SMS OTP + Password
+    App->>Cloud: Validates credentials via salted SHA-256 & 10-digit match
+    Worker->>App: Registers with Trade, Society, & Masked Aadhaar
+    App->>Cloud: Persists to `worker_profiles` with verified trade credentials
+
+    Note over Customer,Worker: Step 2: Service Request & SOS Dispatch
+    Customer->>App: Creates request (e.g. Electrician, ₹350 budget, SOS 30-min)
+    App->>Cloud: Inserts job record in `job_requests` (Status: `SEARCHING`)
+    Cloud-->>Worker: Broadcasts to matching craftsmen via WebSockets & Radar
+
+    Note over Customer,Worker: Step 3: Cooperative Dynamic Bidding
+    Worker->>App: Reviews job scope & submits custom bid (e.g. ₹400, 15 min ETA)
+    App->>Cloud: Writes offer to `bids_negotiations`
+    Cloud-->>Customer: Real-time update displays bids with Worker KYC & Rating
+
+    Note over Customer,Worker: Step 4: Deal Acceptance & Start OTP Handshake
+    Customer->>App: Accepts chosen worker's bid
+    App->>Cloud: Updates job status to `EN_ROUTE` & generates 4-digit Start OTP
+    App-->>Customer: Displays locked physical Start OTP (e.g. 7102)
+    Worker->>Customer: Physically arrives at location & asks for Start OTP
+    Worker->>App: Enters 4-digit Start OTP into Worker Portal
+    App->>Cloud: Validates OTP match -> updates job status to `IN_PROGRESS`
+
+    Note over Customer,Worker: Step 5: Work Execution & PMSBY Insurance
+    Note over Customer,Worker: Live job timer active; PMSBY ₹2,00,000 accidental cover enabled
+
+    Note over Customer,Worker: Step 6: Work Completion & 88/6/3/3 Escrow Split
+    Worker->>App: Taps "Mark Job Finished"
+    App->>Cloud: Updates job status to `COMPLETED`
+    App->>App: Calculates split: 88% Worker, 6% Welfare, 3% Society, 3% Infra
+
+    Note over Customer,Worker: Step 7: BharatQR & Mobile UPI Payment
+    Customer->>App: Scans dynamic BharatQR (chandan.bank@pingpay) or taps UPI app
+    Customer->>App: Taps "Confirm & Pay via UPI"
+    App->>Cloud: Sets payment_status = `PAID`
+
+    Note over Customer,Worker: Step 8: GST Tax Invoice & Session Lock
+    App-->>Customer: Renders locked official GST tax invoice with 5-star rating
+    Customer->>App: Rates service & taps "Book Next Service" to unlock new booking
+```
+
+### Detailed Flow Descriptions:
+
+#### 1. Authentication & Onboarding
+- **Multi-Format 10-Digit Mobile Matching**: Accepts raw digits (`9876543210`), prefixed (`+919876543210`), or spaced (`+91 98765 43210`). Non-numeric characters are stripped, extracting the core 10 digits.
+- **Salted SHA-256 Password Cryptography**: Passwords are cryptographically hashed client-side using `crypto.subtle.digest('SHA-256')` with an application salt before verification.
+- **Direct Database Persistence**: Workers are persisted to Supabase `worker_profiles` independently of third-party SMS rate limits.
+- **Local Fallback Cache**: Credentials and registered accounts are safely preserved across browser sessions.
+
+#### 2. Service Request & SOS Dispatch
+- **Categorized Rate Cards**: Standardized base pricing for 8+ trades (Electrician, Plumber, Carpenter, Domestic Caregiver, Painter, Appliance Repair, Cleaning, Gardening).
+- **Booking Modes**:
+  - `INSTANT_SOS`: 30-minute rapid emergency response.
+  - `SCHEDULED`: User-selected date and time slot.
+- **Automated Trade Routing**: Electrician requests route exclusively to certified electricians, plumbing requests to plumbers, etc.
+
+#### 3. Real-Time Dynamic Negotiation (Bidding)
+- **Hyperlocal Worker Radar**: Available workers receive audio/visual dispatches within their certified category.
+- **Counter-Offers**: Workers can accept the customer's proposed budget or submit a custom bid price and arrival ETA.
+- **Customer Decision Cockpit**: Customer compares incoming bids showing worker photo, trade certifications, cooperative society name, distance, and 5-star rating.
+
+#### 4. Physical Start OTP Handshake
+- When the customer accepts a bid, the system transitions to `EN_ROUTE` and generates a secure 4-digit numeric **Start OTP**.
+- The customer view displays the code with an official security instruction: *"Share this 4-digit security code with the service partner upon physical arrival to authorize the repair."*
+- The worker cannot start the repair without physically requesting and entering this 4-digit code in their console.
+- Verifying the code transitions the job to `IN_PROGRESS`.
+
+#### 5. Fair-Wage Settlement (88/6/3/3 Escrow Engine)
+Upon job completion, the total fare is programmatically distributed:
+- **Worker Direct Wage**: 88%
+- **Worker Welfare Pool (PMSBY + Micro-pension)**: 6%
+- **Primary Cooperative Society Fund**: 3%
+- **Platform & Technology Infrastructure**: 3%
+
+#### 6. BharatQR & Real UPI Payment
+- Displays dynamic BharatQR encoded with payment recipient `chandan.bank@pingpay`.
+- Interactive deep link (`upi://pay?pa=chandan.bank@pingpay&pn=SahakarSetu...`) supports 1-tap launching into Google Pay, PhonePe, Paytm, BHIM, and CRED.
+- Confirmed transactions permanently seal the payment in Supabase.
+
+#### 7. Locked Tax Invoice & Review
+- Generates an official, printable GST receipt displaying the job ID, transaction timestamp, price breakdown, and cooperative society affiliation.
+- The `activeCustomerJobId` lock ensures the screen never reverts back to "Payment Due" on page refreshes or polling intervals.
+- The customer can leave a 5-star rating, after which they can click **"Book Next Service"** to start fresh.
+
+#### 8. Federation Admin & Society Governance
+- **DigiLocker KYC Queue**: Review and approve newly registered workers with 1-click verification.
+- **AI Demand Surge Mobilizer**: Predictive weather triggers (heatwave AC spikes, monsoon drainage clogs) generate workforce mobilization vouchers.
+- **Democratic 3-Tier Grievance Desk**: Society mediation -> District arbitrator -> Apex federation review.
+
+---
+
+## 3. Overall System Architecture
+
+```
++---------------------------------------------------------------------------------------+
+|                               SahakarSetu Architecture                                |
++---------------------------------------------------------------------------------------+
+                                        │
+             ┌──────────────────────────┴──────────────────────────┐
+             ▼                                                     ▼
+┌─────────────────────────┐                             ┌─────────────────────────┐
+│     CUSTOMER PORTAL     │                             │      WORKER PORTAL      │
+│  • Service Discovery    │                             │  • Radar Dispatch       │
+│  • Custom Bidding Radar │                             │  • Dynamic Bidding Desk │
+│  • Start OTP Generation │                             │  • Start OTP Validator  │
+│  • BharatQR / UPI Pay   │                             │  • PMSBY Welfare Wallet │
+│  • Tax Invoice Locking  │                             │  • Web Speech Assistant │
+└────────────┬────────────┘                             └────────────┬────────────┘
+             │                                                     │
+             └──────────────────────────┬──────────────────────────┘
+                                        ▼
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│                     APPLICATION CORE & STATE LAYER (React 18)                         │
+│  • AppContext.tsx: Global State Store & Real-Time Orchestration                       │
+│  • Web Crypto API: Salted SHA-256 Credential Hashing                                  │
+│  • BroadcastChannel API: Cross-Tab / Multi-Device Synchronization                     │
+│  • Web Speech AI Engine: Text-to-Speech (hi-IN, en-IN) & Voice Commands               │
+│  • 88/6/3/3 Escrow Calculator & BharatQR Generator                                    │
+└───────────────────────────────────────┬───────────────────────────────────────────────┘
+                                        ▼
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│                         SUPABASE CLOUD INFRASTRUCTURE                                 │
+│  • PostgreSQL 15 Database (Relational Store)                                          │
+│  • PostgREST (Auto-generated REST API Layer)                                          │
+│  • Supabase Realtime (WebSocket Pub/Sub for Bids & Statuses)                          │
+│                                                                                       │
+│  Tables:                                                                              │
+│    ├── profiles             (Users: Citizen, Worker, Admin)                          │
+│    ├── worker_profiles      (Trade, Society, Hourly Rate, Welfare, Insurance)         │
+│    ├── job_requests         (Orders, Status, OTPs, Wage Splits, Payment)             │
+│    └── bids_negotiations    (Realtime Worker Offers, Counter-bids, ETAs)              │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. File and Folder Structure
+
+```
+coop-service-marketplace/
+├── .env                              # Local environment variables (git-ignored)
+├── .env.example                      # Template for environment configuration
+├── .gitignore                        # Git ignore definitions (protects secrets & node_modules)
+├── index.html                        # HTML entry point with responsive viewport & fonts
+├── package.json                      # NPM dependencies, build scripts, & metadata
+├── package-lock.json                 # Pinned dependency lockfile
+├── postcss.config.js                 # PostCSS plugin configuration for Tailwind CSS
+├── tailwind.config.js                # Tailwind CSS custom palettes, typography & animations
+├── tsconfig.json                     # TypeScript compiler configuration (strict mode)
+├── vite.config.ts                    # Vite build tool configuration with React plugins
+├── supabase-schema.sql               # Complete PostgreSQL database schema definitions
+├── requirements.md                   # System requirements & architecture specification
+│
+├── src/                              # Application source code
+│   ├── App.tsx                       # Main application shell with role-switching header & router
+│   ├── main.tsx                      # DOM root bootstrapping with AppProvider wrapper
+│   ├── index.css                     # Global Tailwind styles, custom animations, print styles
+│   ├── vite-env.d.ts                 # Vite environment type declarations
+│   │
+│   ├── components/                   # Modular UI component hierarchy
+│   │   ├── admin/
+│   │   │   └── AdminPortal.tsx       # Federation dashboard: KYC approvals, dispute desk, surge AI
+│   │   ├── auth/
+│   │   │   └── AuthPage.tsx          # Mobile login, SMS OTP verification, & worker onboarding
+│   │   ├── common/
+│   │   │   ├── Header.tsx            # Navigation bar, language toggle, user badge, role switcher
+│   │   │   ├── Footer.tsx            # Cooperative federation footer, statutory links, version
+│   │   │   └── VoiceAssistantModal.tsx # Web Speech AI microphone interface (Hindi / English)
+│   │   ├── customer/
+│   │   │   └── CustomerPortal.tsx    # Citizen portal: booking, live radar, OTP view, UPI payment
+│   │   └── worker/
+│   │       ├── WorkerPortal.tsx      # Craftsman portal: radar alerts, bidding, OTP gate, wallet
+│   │       └── WorkerRegisterModal.tsx # Craftsman registration modal with society affiliation
+│   │
+│   ├── context/
+│   │   └── AppContext.tsx            # Central state store: auth, jobs, bids, WebSockets, broadcast
+│   │
+│   ├── data/
+│   │   ├── mockData.ts               # Translation dictionaries (hi/en), disputes, AI surge data
+│   │   └── mockMarketplaceData.ts    # Service categories, rate cards, and cooperative society seeds
+│   │
+│   ├── lib/
+│   │   ├── smsService.ts             # SMS OTP dispatch service & mobile formatting utilities
+│   │   └── supabase.ts               # Supabase client, auth functions, SHA-256 hashing, DB sync
+│   │
+│   └── types/
+│       ├── index.ts                  # Shared platform interfaces (translations, categories)
+│       └── marketplace.ts            # Core domain types: JobRequest, Bid, WorkerProfile, AuthUser
+```
+
+---
+
+## 5. Technical Stack
+
+| Layer | Technology | Purpose & Implementation Details |
 | :--- | :--- | :--- |
-| **`CUSTOMER`** | Citizen / Household / Institutional Facility Manager | Discovers standardized rate cards, books instant SOS 30-min or scheduled services, verifies worker identity, initiates Start OTP handshake, pays via split BharatQR/UPI, and rates service quality. |
-| **`WORKER`** | Shramik / Cooperative Craftsman | Receives hyperlocal audio/visual dispatch alerts, listens to job briefs via Web Speech AI in regional languages, executes work via Dual-OTP validation, monitors live wallet earnings (88%), and accesses PMSBY insurance and micro-pensions. |
-| **`PRIMARY_SOCIETY`** | Primary Labour Cooperative Society Manager | Endorses local worker credentials, conducts physical tool/skill verification, disburses fast-track emergency tool loans, and arbitrates initial citizen grievances. |
-| **`FEDERATION_ADMIN`** | State/National Apex Federation Board | Governs regional minimum price floors, reviews DigiLocker KYC queue, monitors live macro KPIs, executes AI surge workforce mobilization vouchers, and manages the 3-tier grievance desk. |
+| **Frontend Framework** | **React 18 (TypeScript)** | Component-based reactive UI, strict typing, functional hooks (`useState`, `useEffect`, `useContext`, `useRef`). |
+| **Build & Tooling** | **Vite 5** | Lightning-fast Hot Module Replacement (HMR), optimized production bundling (< 5s build time). |
+| **Styling & Design** | **Tailwind CSS 3** | Utility-first responsive design, custom Indian cooperative color palettes (emerald, amber, slate), print stylesheets. |
+| **Iconography & UI** | **Lucide React** | Clean, accessible SVG iconography for trade categories, status indicators, and actions. |
+| **Visual Effects** | **Canvas-Confetti** | Celebration feedback animations on successful OTP verification, bid acceptance, and payments. |
+| **Database & Cloud** | **Supabase (PostgreSQL 15)** | Relational data persistence, Row-Level Security, PostgREST automatic REST API endpoints. |
+| **Real-Time Sync** | **Supabase Realtime & WebSockets** | Instant multi-device push updates for job requests, incoming bids, and status handshakes. |
+| **Cross-Tab Sync** | **BroadcastChannel API** | Seamless live coordination between multiple browser tabs/windows (`sahakar_market_sync`). |
+| **Cryptography** | **Web Crypto API (SubtleCrypto)** | Salted SHA-256 password hashing and secure random UUID generation (`crypto.randomUUID`). |
+| **Voice AI & TTS** | **Web Speech API** | Hands-free voice commands (`SpeechRecognition`) and spoken job briefings (`SpeechSynthesis` in `hi-IN` & `en-IN`). |
+| **Payment Gateway** | **BharatQR & NPCI UPI Intent** | Dynamic SVG BharatQR generator and deep linking (`upi://pay?pa=chandan.bank@pingpay...`) for instant mobile UPI app checkout. |
+| **Mobile Normalization** | **Custom Indian Phone Regex Engine** | Normalizes phone formats (`+91`, spaces, hyphens) to 10 core digits for database querying. |
 
 ---
 
-## 3. Functional Requirements (FR)
+## 6. Database Schema Summary
 
-### FR-1: User Management & Authentication
-* **FR-1.1:** The system shall authenticate customers, workers, and administrators via mobile phone OTP and secure session tokens.
-* **FR-1.2:** The system shall support seamless role-switching for demonstration and administrative oversight without losing active session states.
-* **FR-1.3:** Customer profiles shall store delivery addresses, emergency contact flags, and booking histories with privacy masking.
+### Table: `profiles`
+Represents registered users across all roles (Citizens, Craftsmen, Federation Admins).
+- `id` (UUID, Primary Key)
+- `role` (`'customer'` | `'worker'` | `'admin'`)
+- `full_name` (Text)
+- `phone` (Text)
+- `address` (Text)
+- `avatar_url` (Text)
+- `created_at` / `updated_at` (Timestamp)
 
-### FR-2: Two-Tier DigiLocker & Skill India KYC Pipeline
-* **FR-2.1 (Tier-1 Identity):** Automated Aadhaar/PAN identity verification via DigiLocker API integration.
-* **FR-2.2 (DPDP Act Compliance):** Aadhaar numbers must be cryptographically masked (`XXXX-XXXX-1234`) on all public and worker-facing interfaces.
-* **FR-2.3 (Tier-2 Skill Endorsement):** Validation of National Skill Development Corporation (NSDC / Skill India / ITI) certification IDs against national databases.
-* **FR-2.4 (Society Gate):** Newly registered workers remain in `PENDING` status until endorsed by their Primary Labour Cooperative Society or Federation Admin.
+### Table: `worker_profiles`
+Represents verified craftsmen belonging to Primary Labour Cooperative Societies.
+- `id` (UUID, Primary Key)
+- `user_id` (UUID, Nullable reference to `profiles.id`)
+- `name` (Text)
+- `phone` (Text)
+- `trade` (Text, e.g. "Electrician & Power Care")
+- `experience_years` (Integer)
+- `society_name` (Text, e.g. "Central District Labour Cooperative Federation #12")
+- `society_id` (Text, NOT NULL, default: `'COOP-DL-2026-091'`)
+- `district` (Text)
+- `verification_status` (`'VERIFIED'` | `'PENDING'` | `'SUSPENDED'`)
+- `aadhar_masked` (Text, DPDP-compliant `XXXX-XXXX-1234`)
+- `hourly_rate_floor` (Numeric)
+- `rating` (Numeric, default: 5.0)
+- `review_count` (Integer)
+- `completed_jobs` (Integer)
+- `is_available` (Boolean)
+- `welfare_balance` / `pension_savings` (Numeric)
+- `insurance_policy_no` (Text, PMSBY policy identifier)
 
-### FR-3: Standardized Rate Card & Price Floor Governance
-* **FR-3.1:** The catalog shall maintain government-benchmarked, standardized rate cards across 8+ trade categories (Electrician, Plumber, Carpenter, Caregiver, Painter, Appliance Repair, Cleaning, Gardener).
-* **FR-3.2:** Each category shall include itemized task scope breakdowns with duration estimates and fixed base rates to prevent on-site overcharging.
-* **FR-3.3:** The platform shall enforce regional minimum wage price floors indexed to annual cost-of-living adjustments, strictly prohibiting predatory commercial price-dumping.
+### Table: `job_requests`
+Represents active and completed customer service orders.
+- `id` (Text, Primary Key, e.g. `JOB-1042`)
+- `customer_id` (UUID)
+- `customer_name` (Text)
+- `customer_phone` (Text)
+- `customer_address` (Text)
+- `service_category_id` (Text)
+- `service_title` (Text)
+- `problem_description` (Text)
+- `booking_type` (`'INSTANT_SOS'` | `'SCHEDULED'`)
+- `initial_budget` / `agreed_price` (Numeric)
+- `status` (`'SEARCHING'` | `'MATCHED'` | `'EN_ROUTE'` | `'IN_PROGRESS'` | `'COMPLETED'` | `'CANCELLED'`)
+- `selected_worker_id` (UUID)
+- `start_otp` (Text, 4-digit code)
+- `completion_otp` (Text, 4-digit code)
+- `worker_wage` (Numeric, 88%)
+- `welfare_cut` (Numeric, 6%)
+- `society_cut` (Numeric, 3%)
+- `platform_cut` (Numeric, 3%)
+- `payment_status` (`'PENDING'` | `'PAID'`)
+- `payment_method` (`'UPI'` | `'BHARAT_QR'`)
 
-### FR-4: Hyperlocal Geo-Matching & SOS Rapid Dispatch
-* **FR-4.1:** The system shall implement spatial queries (PostGIS `ST_DWithin` / Haversine distance matrix) to match orders to the nearest available, verified worker within a **3 km radius**.
-* **FR-4.2 (30-Minute SOS Dispatch):** For emergency trades (short circuits, pipe bursts), the system shall trigger rapid dispatch routing targeting on-site arrival in **under 30 minutes**.
-* **FR-4.3:** Workers shall have a real-time online/offline availability toggle with background GPS telemetry.
-
-### FR-5: Order Execution Lifecycle & Cryptographic Dual-OTP Handshake
-* **FR-5.1:** State transition lifecycle: `SEARCHING` $\rightarrow$ `MATCHED` $\rightarrow$ `EN_ROUTE` $\rightarrow$ `IN_PROGRESS` $\rightarrow$ `COMPLETED` $\rightarrow$ `PAID`.
-* **FR-5.2 (Start OTP):** Upon arrival on-site, the worker must input the customer's 4-digit **Start OTP** to start the job timer and unlock safety protocols.
-* **FR-5.3 (Completion Verification):** Upon task conclusion, optional photo proof of work is captured, and completion verification triggers the automated escrow split.
-* **FR-5.4:** In-app masked calling shall bridge communications between citizen and worker without revealing personal phone numbers.
-
-### FR-6: Automated Fair-Wage Escrow Split Engine (88 / 6 / 3 / 3 Split)
-* **FR-6.1:** Financial settlements must be calculated server-side to prevent client-side tampering using the locked formula:
-  $$\text{Total Booking Fare} = \text{Base Inspection Fee} + \sum (\text{Task Unit Rate} \times \text{Quantity})$$
-* **FR-6.2:** Instant financial distribution on job completion:
-  * **88% $\rightarrow$ Direct Worker Payout:** Transferred instantly to worker's UPI/bank account.
-  * **6% $\rightarrow$ Worker Social Security & Welfare Pool:** Directed into worker’s personal welfare ledger.
-  * **3% $\rightarrow$ Primary Cooperative Society Fund:** Contributed to local society reserves and equipment pools.
-  * **3% $\rightarrow$ Platform Maintenance & Tech Infrastructure:** Covers cloud hosting, SMS, maps, and voice API gateways.
-* **FR-6.3:** Integration with BharatQR, UPI 2.0 AutoSplit, and simulated escrow settlement.
-
-### FR-7: Worker Social Security, PMSBY & Micro-Pension Ledger
-* **FR-7.1:** Every verified worker profile shall display an active **Pradhan Mantri Suraksha Bima Yojana (PMSBY)** ₹2,00,000 accidental death/disability insurance policy number.
-* **FR-7.2:** The system shall maintain an immutable transaction ledger recording automatic micro-pension accumulations (+₹25 per completed job).
-* **FR-7.3:** Workers can submit fast-track emergency tool replacement or medical micro-credit loan requests approved by society managers within 2 hours.
-
-### FR-8: AI Demand Forecasting & Surge Mobilizer
-* **FR-8.1:** A LightGBM / SARIMAX time-series regression model shall ingest meteorological telemetry (heatwave thresholds >42°C, torrential rainfall warnings) and festival calendars.
-* **FR-8.2:** The model shall predict district-level trade demand spikes 48 hours in advance (e.g., +140% inverter/AC repair spikes during heatwaves, +120% drainage clogs during monsoons).
-* **FR-8.3:** The Federation Admin can trigger **Workforce Mobilization Vouchers** with 1-click, routing surplus cooperative workers from outer zones into surge districts with transit subsidies.
-
-### FR-9: Multilingual Web Speech AI Voice Assistant
-* **FR-9.1:** Integrated Web Speech API (`SpeechSynthesisUtterance` & `SpeechRecognition`) supporting **Hindi and English** (with extensible Tamil, Marathi, Bengali, Telugu dictionaries).
-* **FR-9.2:** Audio playback of job briefs (trade, address, net earnings) tailored for low-literacy Shramiks.
-* **FR-9.3:** Voice command recognition for hands-free job acceptance (`"स्वीकार करें"` / `"Accept"`).
-
-### FR-10: 3-Tier Grievance & Dispute Redressal Desk
-* **FR-10.1:** Democratic 3-tier dispute resolution desk: Tier 1 (Society Mediation) $\rightarrow$ Tier 2 (District Federation Arbitrator) $\rightarrow$ Tier 3 (Apex Board Review).
-* **FR-10.2:** Transparent settlement payouts funded via the cooperative goodwill reserve pool.
-
----
-
-## 4. Non-Functional Requirements (NFR)
-
-### NFR-1: Performance & Latency
-* **NFR-1.1:** REST API response latency shall be $< 200\text{ ms}$ under standard network conditions.
-* **NFR-1.2:** Hyperlocal spatial matching query execution time shall be $< 100\text{ ms}$ across 100,000+ indexed worker coordinates using PostGIS R-Tree spatial indexing.
-* **NFR-1.3:** The frontend PWA initial load time (First Contentful Paint) shall be $< 1.2\text{ s}$ on 3G/4G mobile networks.
-
-### NFR-2: Security, Privacy & Data Protection
-* **NFR-2.1 (DPDP Act 2023 Compliance):** Personal Identifiable Information (PII) such as Aadhaar numbers and customer phone numbers must be masked in transit and at rest.
-* **NFR-2.2:** Cryptographic hash verification on all OTP operations with a 3-attempt throttling lock to prevent brute-force attacks.
-* **NFR-2.3:** Server-side parameterized queries via Prisma ORM to guarantee 100% immunity against SQL injection vulnerabilities.
-
-### NFR-3: Reliability, Availability & Offline Resilience
-* **NFR-3.1:** 99.9% platform availability target with stateless backend microservice containers.
-* **NFR-3.2:** Service Worker caching strategies (Cache-First for UI assets, Network-First with offline fallback for active booking data) enabling field workers to view job directions during signal loss.
-
-### NFR-4: Usability & Accessibility
-* **NFR-4.1:** WCAG 2.1 Level AA compliance with high-contrast cooperative color palettes.
-* **NFR-4.2:** Complete touch-first responsive design adapted for 4.7" entry-level smartphones through 27" desktop monitors.
-* **NFR-4.3:** Native font support for Devanagari script (`Noto Sans Devanagari`) alongside Latin typography (`Inter`).
+### Table: `bids_negotiations`
+Represents live counter-offers and bids submitted by workers for specific jobs.
+- `id` (Text, Primary Key, e.g. `BID-4821`)
+- `job_request_id` (Text, References `job_requests.id`)
+- `worker_id` (UUID)
+- `worker_name` (Text)
+- `worker_avatar` (Text)
+- `worker_trade` (Text)
+- `worker_rating` (Numeric)
+- `worker_society` (Text)
+- `worker_distance_km` (Numeric)
+- `proposed_price` (Numeric)
+- `eta_minutes` (Integer)
+- `status` (`'PENDING'` | `'ACCEPTED'` | `'REJECTED'`)
+- `created_at` (Timestamp)
 
 ---
 
-## 5. Technical Specifications & Architecture Stack
+## 7. Statutory & Policy Compliance Alignment
 
-```
-+-----------------------------------------------------------------------------------+
-|                        SahakarSetu Full-Stack Architecture                        |
-+--------------------------+----------------------------+---------------------------+
-| 🌐 Frontend Layer        | 📡 Application Gateway     | 🗄️ Persistence & National |
-| • React 18 + TypeScript  | • Node.js / Express.js     | • Prisma ORM              |
-| • Vite Bundler           | • REST API Endpoints       | • SQLite (Dev) / PostGIS  |
-| • Tailwind CSS           | • 88/6/3/3 Escrow Engine   | • DigiLocker API Ready    |
-| • Web Speech AI Engine   | • Dual-OTP Validator       | • Skill India NSDC Hook   |
-| • PWA Service Worker     | • LightGBM AI Predictor    | • UPI 2.0 AutoSplit Stack |
-+--------------------------+----------------------------+---------------------------+
-```
-
-### 5.1 Technology Stack Summary
-* **Client Frontend:** React 18, TypeScript, Tailwind CSS, Lucide Icons, Canvas-Confetti, Web Speech API.
-* **Backend Application:** Node.js, Express.js, TypeScript, CORS middleware.
-* **Database & ORM:** Prisma ORM, SQLite (`dev.db` for instant local dev) / PostgreSQL + PostGIS (Production cloud).
-* **AI & Machine Learning:** LightGBM / Python FastAPI time-series microservice for meteorological demand forecasting.
-* **Deployment & CI/CD:** GitHub Actions workflow (`.github/workflows/deploy.yml`), Vite production bundling, Docker container readiness.
-
----
-
-## 6. Database Schema Specifications
-
-```prisma
-// Users Table (Citizens, Workers, Admins)
-model User {
-  id            String          @id @default(uuid())
-  phone         String          @unique
-  name          String
-  email         String?
-  role          String          @default("CUSTOMER") // CUSTOMER | WORKER | ADMIN
-  createdAt     DateTime        @default(now())
-  workerProfile WorkerProfile?
-  bookings      Booking[]
-}
-
-// Worker Profile & Cooperative Affiliation
-model WorkerProfile {
-  id                  String               @id @default(uuid())
-  userId              String               @unique
-  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trade               String
-  tradeHi             String?
-  secondaryTrades     String               @default("[]")
-  experienceYears     Int                  @default(5)
-  rating              Float                @default(5.0)
-  reviewCount         Int                  @default(0)
-  societyName         String
-  societyId           String
-  district            String
-  verificationStatus  String               @default("VERIFIED") // PENDING | VERIFIED | SUSPENDED
-  aadharMasked        String
-  skillCertifications String               @default("[]")
-  avatar              String
-  hourlyRate          Float                @default(300)
-  distanceKm          Float                @default(1.5)
-  isAvailable         Boolean              @default(true)
-  completedJobs       Int                  @default(0)
-  badges              String               @default("[]")
-  welfareBalance      Float                @default(0)
-  pensionSavings      Float                @default(0)
-  insurancePolicyNo   String
-  lat                 Float                @default(28.6139)
-  lng                 Float                @default(77.2090)
-  createdAt           DateTime             @default(now())
-  bookings            Booking[]
-  welfareLedger       WelfareTransaction[]
-}
-
-// Service Catalog & Standard Rate Cards
-model ServiceCategory {
-  id                 String        @id
-  title              String
-  titleHi            String
-  icon               String
-  color              String
-  badge              String?
-  description        String
-  descriptionHi      String
-  baseInspectionFee  Float
-  emergencyAvailable Boolean       @default(false)
-  createdAt          DateTime      @default(now())
-  standardItems      ServiceItem[]
-  bookings           Booking[]
-}
-
-model ServiceItem {
-  id              String          @id
-  categoryId      String
-  category        ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  name            String
-  nameHi          String
-  baseRate        Float
-  unit            String
-  durationMinutes Int
-}
-
-// Bookings & Escrow Wage Split
-model Booking {
-  id                 String          @id
-  customerId         String?
-  customer           User?           @relation(fields: [customerId], references: [id])
-  customerName       String
-  customerPhone      String
-  customerAddress    String
-  serviceCategoryId  String
-  serviceCategory    ServiceCategory @relation(fields: [serviceCategoryId], references: [id])
-  serviceTitle       String
-  selectedItemsJson  String          @default("[]")
-  bookingType        String          @default("INSTANT_SOS") // INSTANT_SOS | SCHEDULED
-  scheduledTime      String
-  status             String          @default("SEARCHING") // SEARCHING | MATCHED | EN_ROUTE | IN_PROGRESS | COMPLETED | CANCELLED
-  workerId           String?
-  worker             WorkerProfile?  @relation(fields: [workerId], references: [id])
-  startOtp           String
-  completionOtp      String
-  totalAmount        Float
-  workerWage         Float           // 88% Direct Payout
-  welfareCut         Float           // 6% Social Security
-  societyCut         Float           // 3% Society Reserve
-  platformCut        Float           // 3% Tech Infra
-  paymentStatus      String          @default("PENDING") // PENDING | PAID | ESCROW
-  paymentMethod      String?         // UPI | CARD | CASH
-  problemDescription String?
-  rating             Int?
-  reviewComment      String?
-  workProofPhoto     String?
-  createdAt          DateTime        @default(now())
-  completedAt        DateTime?
-}
-
-// Micro-Welfare & Pension Ledger
-model WelfareTransaction {
-  id          String        @id
-  workerId    String
-  worker      WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  date        String
-  type        String        // INSURANCE_PMSBY | PENSION_SAVINGS | DISTRESS_GRANT | DIVIDEND_PAYOUT
-  amount      Float
-  description String
-  status      String        @default("CREDITED") // CREDITED | DEBITED
-  createdAt   DateTime      @default(now())
-}
-```
-
----
-
-## 7. REST API Endpoints Specification
-
-| Method | Endpoint | Description | Request Body / Query |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/health` | System health check and server uptime | None |
-| `GET` | `/api/services` | Retrieve full catalog with standardized rate cards | None |
-| `GET` | `/api/workers` | Retrieve verified worker roster with filters | `?trade=&isAvailable=` |
-| `POST` | `/api/workers/register` | Self-onboarding for cooperative craftsmen | `{ name, phone, trade, societyName, district, hourlyRate }` |
-| `PATCH` | `/api/workers/:id/availability` | Toggle worker online/offline GPS status | None |
-| `GET` | `/api/bookings` | Fetch active and historical bookings | `?status=&workerId=` |
-| `POST` | `/api/bookings` | Create booking with server-side 88/6/3/3 split | `{ serviceCategoryId, items, bookingType, customerAddress }` |
-| `PATCH` | `/api/bookings/:id/accept` | Worker accepts booking $\rightarrow$ status `EN_ROUTE` | `{ workerId }` |
-| `POST` | `/api/bookings/:id/start-otp` | Verify 4-digit start OTP $\rightarrow$ status `IN_PROGRESS` | `{ otp }` |
-| `POST` | `/api/bookings/:id/complete` | Mark work completed, credit wallet & welfare fund | `{ proofPhotoUrl }` |
-| `POST` | `/api/bookings/:id/pay` | Settle payment via UPI / BharatQR split | `{ paymentMethod }` |
-| `POST` | `/api/bookings/:id/rate` | Submit 5-star customer review & feedback | `{ rating, comment }` |
-| `GET` | `/api/welfare/:workerId` | Fetch PMSBY insurance policy & pension ledger | None |
-| `POST` | `/api/welfare/loan-request` | Submit instant emergency tool/medical loan request | `{ workerId, amount, purpose }` |
-| `GET` | `/api/admin/metrics` | Retrieve macro KPIs (wages disbursed, active societies) | None |
-| `GET` | `/api/admin/demand-forecast` | Retrieve AI demand surge predictions | None |
-| `PATCH` | `/api/admin/verify-worker/:id` | Approve/Reject worker DigiLocker KYC | `{ status: "VERIFIED" }` |
-| `POST` | `/api/admin/resolve-dispute/:id` | Arbitrate dispute via cooperative mediation pool | `{ resolutionNote }` |
-
----
-
-## 8. Statutory & Policy Compliance Alignment
-
-1. **Multi-State Co-operative Societies Act (MSCS Act 2002 / 2023 Amendments):** Complies with cooperative autonomy, democratic control, and member economic participation standards.
-2. **Digital Personal Data Protection (DPDP) Act 2023:** Enforces purpose limitation, data minimization, and masked identity storage for Aadhaar and mobile credentials.
-3. **Pradhan Mantri Suraksha Bima Yojana (PMSBY):** Direct policy mapping providing ₹2,00,000 accidental risk coverage funded through the 6% welfare deduction.
-4. **Pradhan Mantri Shram Yogi Maan-dhan (PM-SYM):** Aligns micro-pension accumulations (+₹25/job) with national unorganized sector pension frameworks.
-5. **National Skill Development Corporation (NSDC):** Standardizes skill certification levels ensuring certified quality service for consumers.
-
----
-
-## 9. Verification & Acceptance Criteria
-
-* ✅ **Acceptance Test 1 (Citizen Booking):** Citizen selects electrician repair $\rightarrow$ server computes transparent fare with 88/6/3/3 split $\rightarrow$ generates 4-digit Start OTP in SQLite database.
-* ✅ **Acceptance Test 2 (Worker Handshake):** Worker receives live audio/radar dispatch $\rightarrow$ accepts $\rightarrow$ enters citizen Start OTP on arrival $\rightarrow$ job transitions to `IN_PROGRESS`.
-* ✅ **Acceptance Test 3 (Welfare Settlement):** Job completion immediately increments worker's direct wallet by 88% and appends a verified 6% credit entry in the **PMSBY Welfare Ledger**.
-* ✅ **Acceptance Test 4 (Admin KYC Approval):** Newly registered worker with `PENDING` status is reviewed and approved in the Admin KYC queue, instantly activating their dispatch availability.
-* ✅ **Acceptance Test 5 (AI Surge Dispatch):** LightGBM weather trigger simulation generates proactive workforce mobilization vouchers for high-demand districts.
+1. **Multi-State Co-operative Societies Act (MSCS Act 2002 / 2023 Amendments)**: Promotes cooperative autonomy, democratic member control, and equitable economic participation.
+2. **Digital Personal Data Protection (DPDP) Act 2023**: Enforces privacy by design, purpose limitation, and masked identity storage for Aadhaar (`XXXX-XXXX-1234`) and mobile contact information.
+3. **Pradhan Mantri Suraksha Bima Yojana (PMSBY)**: Integrates active ₹2,00,000 accidental risk coverage funded transparently through the 6% welfare deduction.
+4. **Pradhan Mantri Shram Yogi Maan-dhan (PM-SYM)**: Channelizes micro-pension accumulations (+₹25/job) into national unorganized worker pension accounts.
+5. **National Skill Development Corporation (NSDC / Skill India)**: Standardizes trade quality benchmarks to protect both consumers and certified craftsmen.
